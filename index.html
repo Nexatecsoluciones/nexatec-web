@@ -1,391 +1,954 @@
 <!DOCTYPE html>
-<html lang="es-PY">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>NEXATEC | ERP, CRM, BI y Automatización para Empresas</title>
+  <title>NEXATEC | Soluciones Tecnológicas</title>
+  <meta
+    name="description"
+    content="NEXATEC Soluciones Tecnológicas: ERP, CRM, Business Intelligence, automatización, cloud y servidores locales para empresas y PyMEs."
+  />
 
-  <meta name="description" content="NEXATEC Soluciones Tecnológicas desarrolla sistemas ERP, CRM, Business Intelligence, automatización, facturación, servidores locales y soluciones cloud para comercios, talleres, consultorios y empresas en Paraguay." />
-  <meta name="keywords" content="NEXATEC, ERP Paraguay, CRM Paraguay, Business Intelligence Paraguay, software empresarial, automatización, facturación, servidores locales, sistemas para comercios, NexaBox, NexaTec Cloud" />
-  <meta name="author" content="NEXATEC Soluciones Tecnológicas" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <meta property="og:title" content="NEXATEC Soluciones Tecnológicas" />
-  <meta property="og:description" content="ERP, CRM, BI, automatización, facturación y soluciones tecnológicas para empresas." />
-  <meta property="og:type" content="website" />
+  <style>
+    :root{
+      --bg:#012924;
+      --bg-2:#01352e;
+      --bg-3:#0a4a41;
+      --card:#0a3a33;
+      --card-2:#115046;
+      --line:rgba(122, 211, 196, 0.15);
+      --text:#f3f7f6;
+      --muted:#a8bbb7;
+      --accent:#49e2d0;
+      --accent-2:#2cc3b2;
+      --pill:#15564a;
+      --shadow:0 25px 80px rgba(0,0,0,.24);
+      --container:1180px;
+    }
 
-  <!-- IMPORTANTE: el archivo en tu GitHub se llama styles.css -->
-  <link rel="stylesheet" href="styles.css" />
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+    }
+
+    html{
+      scroll-behavior:smooth;
+    }
+
+    body{
+      font-family:'Poppins', sans-serif;
+      background:
+        radial-gradient(circle at 85% 8%, rgba(56,127,108,0.45) 0, rgba(56,127,108,0.45) 12%, transparent 13%),
+        radial-gradient(circle at 10% 80%, rgba(29,103,89,0.35) 0, rgba(29,103,89,0.35) 14%, transparent 15%),
+        linear-gradient(180deg, #012924 0%, #00251f 100%);
+      color:var(--text);
+      overflow-x:hidden;
+    }
+
+    a{
+      text-decoration:none;
+      color:inherit;
+    }
+
+    .container{
+      width:min(var(--container), calc(100% - 40px));
+      margin:0 auto;
+    }
+
+    header{
+      position:sticky;
+      top:0;
+      z-index:20;
+      background:rgba(1,41,36,.78);
+      backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--line);
+    }
+
+    .nav{
+      min-height:86px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:20px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .brand-icon{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      background:linear-gradient(180deg, #0f5a4e 0%, #0a4a40 100%);
+      display:grid;
+      place-items:center;
+      box-shadow:0 10px 28px rgba(0,0,0,.18);
+      flex-shrink:0;
+      overflow:hidden;
+    }
+
+    .brand-icon svg{
+      width:34px;
+      height:34px;
+      display:block;
+    }
+
+    .brand-text{
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+
+    .brand-text strong{
+      font-size:1.65rem;
+      line-height:1;
+      letter-spacing:.5px;
+      font-weight:700;
+    }
+
+    .brand-text span{
+      font-size:.76rem;
+      letter-spacing:4px;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-top:6px;
+      font-weight:400;
+    }
+
+    nav{
+      display:flex;
+      align-items:center;
+      gap:24px;
+    }
+
+    nav a{
+      color:#dce8e5;
+      font-size:.95rem;
+      font-weight:500;
+      transition:.18s ease;
+    }
+
+    nav a:hover{
+      color:var(--accent);
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      min-height:50px;
+      padding:0 22px;
+      border-radius:999px;
+      font-weight:600;
+      transition:.2s ease;
+      border:1px solid transparent;
+      cursor:pointer;
+    }
+
+    .btn:hover{
+      transform:translateY(-2px);
+    }
+
+    .btn-primary{
+      background:linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color:#07352f;
+      box-shadow:0 14px 34px rgba(73,226,208,.22);
+    }
+
+    .btn-secondary{
+      background:rgba(255,255,255,.04);
+      border-color:var(--line);
+      color:var(--text);
+    }
+
+    .hero{
+      padding:80px 0 70px;
+    }
+
+    .hero-card{
+      background:linear-gradient(180deg, rgba(1,41,36,.80) 0%, rgba(1,41,36,.65) 100%);
+      border:1px solid var(--line);
+      border-radius:36px;
+      padding:64px 58px;
+      position:relative;
+      overflow:hidden;
+      box-shadow:var(--shadow);
+    }
+
+    .hero-card::before{
+      content:"";
+      position:absolute;
+      width:420px;
+      height:420px;
+      border-radius:50%;
+      background:rgba(35,110,95,.50);
+      top:-170px;
+      right:-110px;
+    }
+
+    .hero-card::after{
+      content:"";
+      position:absolute;
+      width:380px;
+      height:380px;
+      border-radius:50%;
+      background:rgba(14,96,82,.40);
+      bottom:-220px;
+      left:-130px;
+    }
+
+    .hero-inner{
+      position:relative;
+      z-index:2;
+      max-width:900px;
+    }
+
+    .hero-brand{
+      display:flex;
+      align-items:center;
+      gap:18px;
+      margin-bottom:46px;
+    }
+
+    .hero-brand .brand-icon{
+      width:72px;
+      height:72px;
+      border-radius:22px;
+    }
+
+    .hero-brand .brand-icon svg{
+      width:42px;
+      height:42px;
+    }
+
+    .hero-brand-title{
+      display:flex;
+      flex-direction:column;
+    }
+
+    .hero-brand-title strong{
+      font-size:3rem;
+      line-height:1;
+      font-weight:700;
+      letter-spacing:.5px;
+    }
+
+    .hero-brand-title span{
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:6px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+
+    .eyebrow{
+      color:var(--accent);
+      font-size:1.05rem;
+      text-transform:uppercase;
+      letter-spacing:3px;
+      font-weight:600;
+      margin-bottom:22px;
+    }
+
+    h1{
+      font-size:clamp(2.7rem, 5vw, 5rem);
+      line-height:1.08;
+      font-weight:700;
+      letter-spacing:-1.4px;
+      max-width:760px;
+    }
+
+    h1 .accent{
+      color:var(--accent);
+    }
+
+    .hero p.lead{
+      max-width:780px;
+      font-size:1.45rem;
+      line-height:1.55;
+      color:#c6d5d1;
+      margin-top:28px;
+      font-weight:400;
+    }
+
+    .hero-pills{
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+      margin-top:42px;
+      margin-bottom:34px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:48px;
+      padding:0 24px;
+      border-radius:999px;
+      background:rgba(18,95,80,.85);
+      border:1px solid rgba(122,211,196,.08);
+      color:#eaf3f1;
+      font-weight:500;
+      font-size:1rem;
+      backdrop-filter:blur(8px);
+    }
+
+    .hero-bottom{
+      margin-top:24px;
+      padding-top:28px;
+      border-top:1px solid rgba(180, 218, 212, 0.14);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:20px;
+      flex-wrap:wrap;
+    }
+
+    .hero-bottom h3{
+      font-size:1.9rem;
+      font-weight:600;
+    }
+
+    .hero-bottom .handle{
+      color:var(--accent);
+      font-size:1.7rem;
+      font-weight:500;
+    }
+
+    section{
+      padding:80px 0;
+    }
+
+    .section-title{
+      margin-bottom:38px;
+      max-width:760px;
+    }
+
+    .section-title .mini{
+      color:var(--accent);
+      text-transform:uppercase;
+      letter-spacing:2px;
+      font-size:.95rem;
+      font-weight:600;
+      margin-bottom:12px;
+    }
+
+    .section-title h2{
+      font-size:clamp(2rem, 4vw, 3.4rem);
+      line-height:1.15;
+      font-weight:700;
+      margin-bottom:16px;
+      letter-spacing:-1px;
+    }
+
+    .section-title p{
+      color:var(--muted);
+      font-size:1.05rem;
+      line-height:1.8;
+    }
+
+    .services-grid{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:20px;
+    }
+
+    .service-card{
+      background:rgba(10,58,51,.72);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:26px 22px;
+      box-shadow:var(--shadow);
+      transition:.2s ease;
+    }
+
+    .service-card:hover{
+      transform:translateY(-4px);
+      border-color:rgba(73,226,208,.24);
+    }
+
+    .service-icon{
+      width:48px;
+      height:48px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-weight:700;
+      color:#032822;
+      background:linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      margin-bottom:18px;
+    }
+
+    .service-card h3{
+      font-size:1.2rem;
+      margin-bottom:10px;
+      font-weight:600;
+    }
+
+    .service-card p{
+      color:var(--muted);
+      font-size:.96rem;
+      line-height:1.75;
+    }
+
+    .plans{
+      background:linear-gradient(180deg, rgba(255,255,255,.02) 0%, rgba(255,255,255,.01) 100%);
+      border-top:1px solid var(--line);
+      border-bottom:1px solid var(--line);
+    }
+
+    .plan-grid{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:22px;
+    }
+
+    .plan-card{
+      background:rgba(10,58,51,.72);
+      border:1px solid var(--line);
+      border-radius:26px;
+      padding:28px;
+      box-shadow:var(--shadow);
+      position:relative;
+    }
+
+    .plan-card.featured{
+      background:linear-gradient(180deg, rgba(18,95,80,.90) 0%, rgba(10,58,51,.92) 100%);
+      border-color:rgba(73,226,208,.28);
+      transform:translateY(-8px);
+    }
+
+    .badge{
+      display:inline-flex;
+      padding:7px 12px;
+      border-radius:999px;
+      background:rgba(73,226,208,.12);
+      color:var(--accent);
+      font-size:.78rem;
+      font-weight:600;
+      letter-spacing:1px;
+      text-transform:uppercase;
+      margin-bottom:16px;
+    }
+
+    .plan-card h3{
+      font-size:1.4rem;
+      margin-bottom:10px;
+    }
+
+    .price{
+      font-size:2rem;
+      font-weight:700;
+      margin-bottom:12px;
+    }
+
+    .plan-card p{
+      color:var(--muted);
+      line-height:1.75;
+      font-size:.96rem;
+      margin-bottom:18px;
+    }
+
+    .plan-card ul{
+      list-style:none;
+      margin:0 0 24px 0;
+      padding:0;
+    }
+
+    .plan-card li{
+      position:relative;
+      padding-left:26px;
+      margin-bottom:12px;
+      color:#d7e7e3;
+      font-size:.95rem;
+    }
+
+    .plan-card li::before{
+      content:"•";
+      position:absolute;
+      left:8px;
+      top:-1px;
+      color:var(--accent);
+      font-size:1.1rem;
+    }
+
+    .about-grid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:24px;
+      align-items:stretch;
+    }
+
+    .about-card,
+    .contact-card{
+      background:rgba(10,58,51,.72);
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+    }
+
+    .about-card{
+      padding:34px;
+    }
+
+    .about-card p{
+      color:var(--muted);
+      line-height:1.9;
+      margin-top:14px;
+      font-size:1rem;
+    }
+
+    .about-side{
+      display:grid;
+      gap:18px;
+    }
+
+    .mini-box{
+      background:rgba(18,80,70,.76);
+      border:1px solid var(--line);
+      border-radius:22px;
+      padding:22px;
+    }
+
+    .mini-box strong{
+      display:block;
+      font-size:1.2rem;
+      margin-bottom:6px;
+    }
+
+    .mini-box span{
+      color:var(--muted);
+      line-height:1.7;
+      font-size:.95rem;
+    }
+
+    .contact-card{
+      padding:42px;
+      text-align:center;
+    }
+
+    .contact-card h2{
+      font-size:2.35rem;
+      margin-bottom:16px;
+    }
+
+    .contact-card p{
+      color:var(--muted);
+      max-width:760px;
+      margin:0 auto 28px;
+      line-height:1.8;
+      font-size:1.02rem;
+    }
+
+    .contact-actions{
+      display:flex;
+      justify-content:center;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    footer{
+      padding:28px 0 34px;
+      border-top:1px solid var(--line);
+    }
+
+    .footer-wrap{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:20px;
+      flex-wrap:wrap;
+    }
+
+    .footer-wrap p{
+      color:var(--muted);
+      font-size:.93rem;
+    }
+
+    @media (max-width: 1100px){
+      .services-grid{
+        grid-template-columns:repeat(2, 1fr);
+      }
+
+      .plan-grid{
+        grid-template-columns:1fr;
+      }
+
+      .plan-card.featured{
+        transform:none;
+      }
+
+      .about-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 860px){
+      nav{
+        display:none;
+      }
+
+      .hero-card{
+        padding:40px 26px;
+      }
+
+      .hero-brand{
+        align-items:flex-start;
+      }
+
+      .hero-brand-title strong{
+        font-size:2.15rem;
+      }
+
+      .hero-brand-title span{
+        letter-spacing:3px;
+        font-size:.75rem;
+      }
+
+      .hero p.lead{
+        font-size:1.1rem;
+      }
+
+      .hero-bottom h3{
+        font-size:1.4rem;
+      }
+
+      .hero-bottom .handle{
+        font-size:1.25rem;
+      }
+    }
+
+    @media (max-width: 640px){
+      .container{
+        width:min(calc(100% - 24px), var(--container));
+      }
+
+      .brand-text strong{
+        font-size:1.3rem;
+      }
+
+      .brand-text span{
+        letter-spacing:2px;
+        font-size:.68rem;
+      }
+
+      .services-grid{
+        grid-template-columns:1fr;
+      }
+
+      .hero-pills{
+        gap:10px;
+      }
+
+      .pill{
+        width:100%;
+        justify-content:flex-start;
+      }
+
+      h1{
+        font-size:2.45rem;
+      }
+
+      .hero-bottom{
+        align-items:flex-start;
+        flex-direction:column;
+      }
+    }
+  </style>
 </head>
-
 <body>
-  <div class="page-bg"></div>
 
-  <header class="site-header">
+  <header>
     <div class="container nav">
-      <a href="#" class="brand" aria-label="NEXATEC">
-        <div class="brand-mark">
-          <span>N</span>
+      <a href="#" class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="nn1" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#8EF3E5"/>
+                <stop offset="1" stop-color="#49E2D0"/>
+              </linearGradient>
+            </defs>
+            <g fill="none" stroke="url(#nn1)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="60,182 60,58 180,182 180,58"/>
+            </g>
+            <circle cx="180" cy="58" r="15" fill="#B9F9EF"/>
+            <circle cx="60" cy="182" r="9" fill="#2CC3B2"/>
+          </svg>
         </div>
+
         <div class="brand-text">
           <strong>NEXATEC</strong>
-          <small>Soluciones Tecnológicas</small>
+          <span>Soluciones Tecnológicas</span>
         </div>
       </a>
 
-      <nav class="nav-links">
+      <nav>
         <a href="#servicios">Servicios</a>
         <a href="#planes">Planes</a>
-        <a href="#nexabox">NexaBox</a>
-        <a href="#cloud">Cloud</a>
+        <a href="#nosotros">Nosotros</a>
         <a href="#contacto">Contacto</a>
       </nav>
 
-      <a class="nav-cta" href="https://wa.me/595985293019" target="_blank">
-        Solicitar demo
-      </a>
+      <a href="https://wa.me/595985293019" target="_blank" class="btn btn-secondary">WhatsApp</a>
     </div>
   </header>
 
   <main>
     <section class="hero">
-      <div class="container hero-grid">
-        <div class="hero-copy">
-          <div class="eyebrow">
-            ERP · CRM · BI · Automatización · Cloud · Servidores Locales
-          </div>
-
-          <h1>
-            Soluciones tecnológicas para empresas que quieren vender, controlar y crecer mejor.
-          </h1>
-
-          <p class="hero-lead">
-            En <strong>NEXATEC Soluciones Tecnológicas</strong> desarrollamos sistemas empresariales
-            para comercios, talleres, consultorios, centros de belleza, barberías y empresas que
-            necesitan ordenar su operación, medir sus resultados y tomar decisiones con datos.
-          </p>
-
-          <div class="hero-actions">
-            <a class="btn btn-primary" href="https://wa.me/595985293019" target="_blank">
-              Agendar una demo
-            </a>
-            <a class="btn btn-secondary" href="#planes">
-              Ver planes comerciales
-            </a>
-          </div>
-
-          <div class="trust-row">
-            <div>
-              <strong>ERP</strong>
-              <span>Ventas, caja y stock</span>
-            </div>
-            <div>
-              <strong>CRM</strong>
-              <span>Clientes y seguimiento</span>
-            </div>
-            <div>
-              <strong>BI</strong>
-              <span>Indicadores gerenciales</span>
-            </div>
-          </div>
-        </div>
-
-        <aside class="hero-panel">
-          <div class="panel-top">
-            <div class="panel-logo">
-              <span>N</span>
-            </div>
-            <div>
-              <h2>NEXATEC ERP + CRM</h2>
-              <p>Gestión integral para negocios modernos.</p>
-            </div>
-          </div>
-
-          <div class="dashboard-card">
-            <div class="dash-row">
-              <span>Ventas del mes</span>
-              <strong>+18%</strong>
-            </div>
-            <div class="bar">
-              <span style="width: 78%"></span>
-            </div>
-          </div>
-
-          <div class="mini-grid">
-            <div>
-              <small>Clientes</small>
-              <strong>CRM</strong>
-            </div>
-            <div>
-              <small>Reportes</small>
-              <strong>BI</strong>
-            </div>
-            <div>
-              <small>Servidor</small>
-              <strong>Cloud</strong>
-            </div>
-            <div>
-              <small>Backups</small>
-              <strong>Seguro</strong>
-            </div>
-          </div>
-
-          <ul class="check-list">
-            <li>Ventas, caja, clientes y productos</li>
-            <li>CRM comercial y operativo</li>
-            <li>Agenda, tareas y seguimiento</li>
-            <li>Reportes y tableros ejecutivos</li>
-            <li>Backups y seguridad de información</li>
-          </ul>
-        </aside>
-      </div>
-    </section>
-
-    <section class="section section-light">
-      <div class="container split">
-        <div>
-          <p class="section-kicker">Quiénes somos</p>
-          <h2>Somos una empresa enfocada en convertir procesos manuales en sistemas inteligentes.</h2>
-        </div>
-        <div>
-          <p>
-            NEXATEC nace para ayudar a empresas a digitalizar sus operaciones con soluciones prácticas:
-            ERP, CRM, automatización, reportes, infraestructura cloud y servidores locales. Nuestro objetivo
-            es que cada cliente tenga control, trazabilidad y datos confiables para crecer.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section id="servicios" class="section">
       <div class="container">
-        <div class="section-head">
-          <p class="section-kicker">Servicios</p>
-          <h2>Soluciones tecnológicas para operación, gestión y decisión.</h2>
-          <p>
-            Implementamos sistemas adaptados a la realidad de cada negocio, desde una solución local simple
-            hasta plataformas en la nube con soporte, backups y reportes gerenciales.
-          </p>
-        </div>
+        <div class="hero-card">
+          <div class="hero-inner">
 
-        <div class="cards-grid">
-          <article class="service-card">
-            <div class="icon">01</div>
-            <h3>ERP para comercios</h3>
-            <p>Ventas, caja, productos, servicios, clientes, stock, comprobantes, reportes y control operativo.</p>
-          </article>
+            <div class="hero-brand">
+              <div class="brand-icon" aria-hidden="true">
+                <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="nn2" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0" stop-color="#8EF3E5"/>
+                      <stop offset="1" stop-color="#49E2D0"/>
+                    </linearGradient>
+                  </defs>
+                  <g fill="none" stroke="url(#nn2)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="60,182 60,58 180,182 180,58"/>
+                  </g>
+                  <circle cx="180" cy="58" r="15" fill="#B9F9EF"/>
+                  <circle cx="60" cy="182" r="9" fill="#2CC3B2"/>
+                </svg>
+              </div>
 
-          <article class="service-card">
-            <div class="icon">02</div>
-            <h3>CRM comercial y operativo</h3>
-            <p>Seguimiento de oportunidades, clientes, agenda, campañas, tareas y estados de atención.</p>
-          </article>
+              <div class="hero-brand-title">
+                <strong>NEXATEC</strong>
+                <span>Soluciones Tecnológicas</span>
+              </div>
+            </div>
 
-          <article class="service-card">
-            <div class="icon">03</div>
-            <h3>Business Intelligence</h3>
-            <p>Tableros ejecutivos con KPIs de ventas, clientes, rentabilidad, productividad, stock y gestión.</p>
-          </article>
+            <div class="eyebrow">Hola, somos NEXATEC</div>
 
-          <article class="service-card">
-            <div class="icon">04</div>
-            <h3>Automatización</h3>
-            <p>Alertas, reportes, recordatorios, procesos administrativos, integraciones y flujos repetitivos.</p>
-          </article>
+            <h1>
+              Transformamos tu
+              PyME con tecnología
+              <span class="accent">a medida</span>
+            </h1>
 
-          <article class="service-card">
-            <div class="icon">05</div>
-            <h3>Infraestructura cloud</h3>
-            <p>Aplicaciones alojadas en la nube, acceso remoto, backups externos, seguridad y monitoreo.</p>
-          </article>
-
-          <article class="service-card">
-            <div class="icon">06</div>
-            <h3>Servidores locales</h3>
-            <p>NexaBox Local para negocios que desean operar dentro de su comercio con pago único.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="planes" class="section pricing-section">
-      <div class="container">
-        <div class="section-head center">
-          <p class="section-kicker">Planes</p>
-          <h2>Modelos comerciales para cada tipo de cliente.</h2>
-          <p>
-            Ofrecemos soluciones de pago único, planes mensuales con soporte e implementaciones a medida.
-          </p>
-        </div>
-
-        <div class="pricing-grid">
-          <article class="price-card">
-            <span class="badge">Pago único</span>
-            <h3>NexaBox Local</h3>
-            <p class="price">Desde ₲ 9.900.000</p>
-            <p class="price-desc">
-              Para comercios que desean operar localmente sin mensualidad obligatoria de infraestructura.
+            <p class="lead">
+              Optimizá procesos, decidí con datos y hacé crecer tu negocio con herramientas pensadas para la operación real.
             </p>
+
+            <div class="hero-pills">
+              <span class="pill">ERP</span>
+              <span class="pill">CRM</span>
+              <span class="pill">Business Intelligence</span>
+              <span class="pill">Automatización</span>
+            </div>
+
+            <div class="hero-bottom">
+              <h3>Agendá tu consultoría gratuita</h3>
+              <div class="handle">@nexatecpy</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="servicios">
+      <div class="container">
+        <div class="section-title">
+          <div class="mini">Servicios</div>
+          <h2>Soluciones concretas para ventas, operación y crecimiento.</h2>
+          <p>
+            Diseñamos sistemas y herramientas tecnológicas para comercios, talleres, consultorios, barberías, centros de belleza y empresas que necesitan orden, control y escalabilidad.
+          </p>
+        </div>
+
+        <div class="services-grid">
+          <article class="service-card">
+            <div class="service-icon">01</div>
+            <h3>ERP</h3>
+            <p>Ventas, caja, stock, clientes, productos, servicios, reportes y control operativo diario.</p>
+          </article>
+
+          <article class="service-card">
+            <div class="service-icon">02</div>
+            <h3>CRM</h3>
+            <p>Seguimiento de leads, oportunidades, agenda, campañas, recordatorios y atención al cliente.</p>
+          </article>
+
+          <article class="service-card">
+            <div class="service-icon">03</div>
+            <h3>Business Intelligence</h3>
+            <p>KPIs, tableros ejecutivos, análisis de ventas, rentabilidad, productividad y toma de decisiones.</p>
+          </article>
+
+          <article class="service-card">
+            <div class="service-icon">04</div>
+            <h3>Automatización</h3>
+            <p>Procesos automáticos, alertas, recordatorios, reportes programados e integraciones.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="planes" class="plans">
+      <div class="container">
+        <div class="section-title">
+          <div class="mini">Planes</div>
+          <h2>Modelos de servicio adaptados a cada cliente.</h2>
+          <p>
+            Podés elegir una solución local, un esquema mensual con soporte o un proyecto completo a medida.
+          </p>
+        </div>
+
+        <div class="plan-grid">
+          <article class="plan-card">
+            <div class="badge">Pago único</div>
+            <h3>NexaBox Local</h3>
+            <div class="price">Desde ₲ 9.900.000</div>
+            <p>Ideal para negocios que prefieren infraestructura local y quieren evitar una mensualidad fija de hosting.</p>
             <ul>
               <li>Servidor local instalado</li>
-              <li>ERP/CRM configurado</li>
-              <li>Usuarios iniciales</li>
-              <li>Backups locales automáticos</li>
+              <li>Sistema ERP/CRM configurado</li>
+              <li>Red interna del negocio</li>
+              <li>Backups automáticos</li>
               <li>Capacitación inicial</li>
             </ul>
-            <a class="btn btn-card" href="#contacto">Consultar</a>
+            <a href="https://wa.me/595985293019" target="_blank" class="btn btn-secondary">Consultar</a>
           </article>
 
-          <article class="price-card featured">
-            <span class="badge badge-featured">Recomendado</span>
+          <article class="plan-card featured">
+            <div class="badge">Recomendado</div>
             <h3>NEXATEC Cloud</h3>
-            <p class="price">Desde ₲ 550.000 / mes</p>
-            <p class="price-desc">
-              Para empresas que buscan acceso remoto, backups, soporte y evolución continua del sistema.
-            </p>
+            <div class="price">Desde ₲ 550.000 / mes</div>
+            <p>Perfecto para clientes que buscan acceso remoto, soporte continuo, seguridad y crecimiento escalable.</p>
             <ul>
               <li>ERP/CRM en la nube</li>
-              <li>Acceso desde cualquier lugar</li>
-              <li>Backups automáticos</li>
+              <li>Acceso remoto</li>
+              <li>Backups frecuentes</li>
               <li>Soporte mensual</li>
               <li>Actualizaciones menores</li>
             </ul>
-            <a class="btn btn-primary full" href="https://wa.me/595985293019" target="_blank">Solicitar demo</a>
+            <a href="https://wa.me/595985293019" target="_blank" class="btn btn-primary">Solicitar demo</a>
           </article>
 
-          <article class="price-card">
-            <span class="badge">A medida</span>
-            <h3>NEXATEC Enterprise</h3>
-            <p class="price">Proyecto personalizado</p>
-            <p class="price-desc">
-              Para empresas que necesitan integraciones, BI avanzado, automatización y procesos específicos.
-            </p>
+          <article class="plan-card">
+            <div class="badge">A medida</div>
+            <h3>Enterprise</h3>
+            <div class="price">Cotización personalizada</div>
+            <p>Para empresas que necesitan automatización avanzada, BI, CRM operativo e integraciones específicas.</p>
             <ul>
               <li>ERP + CRM + BI</li>
-              <li>Integraciones externas</li>
-              <li>Automatización avanzada</li>
+              <li>Procesos a medida</li>
               <li>Infraestructura dedicada</li>
-              <li>Contrato de confidencialidad</li>
+              <li>Implementación profesional</li>
+              <li>Confidencialidad y soporte</li>
             </ul>
-            <a class="btn btn-card" href="#contacto">Cotizar</a>
+            <a href="https://wa.me/595985293019" target="_blank" class="btn btn-secondary">Cotizar</a>
           </article>
         </div>
       </div>
     </section>
 
-    <section id="nexabox" class="section product-section">
-      <div class="container product-grid">
-        <div>
-          <p class="section-kicker">Servidor local</p>
-          <h2>NexaBox Local</h2>
+    <section id="nosotros">
+      <div class="container">
+        <div class="section-title">
+          <div class="mini">Quiénes somos</div>
+          <h2>Somos una empresa de soluciones tecnológicas para negocios reales.</h2>
           <p>
-            Una solución compacta para clientes que quieren pagar una sola vez y operar el sistema dentro
-            de su comercio. Ideal para negocios pequeños que necesitan ventas, caja, clientes, productos,
-            reportes y CRM básico.
+            En NEXATEC ayudamos a transformar procesos manuales en sistemas simples, medibles y escalables. Nuestro enfoque combina desarrollo, operación, automatización y análisis para que cada cliente pueda vender mejor, controlar más y crecer con información confiable.
           </p>
-          <div class="feature-list">
-            <span>Operación local</span>
-            <span>Backups automáticos</span>
-            <span>Sin mensualidad obligatoria</span>
-            <span>Instalación incluida</span>
+        </div>
+
+        <div class="about-grid">
+          <div class="about-card">
+            <h3 style="font-size:1.4rem; margin-bottom:10px;">Qué hacemos</h3>
+            <p>
+              Implementamos soluciones tecnológicas para empresas que necesitan gestionar ventas, clientes, agenda, stock, caja, equipos, servicios, marketing y reportes. También diseñamos infraestructura local y cloud, con respaldo, seguridad y proyección de crecimiento.
+            </p>
+            <p>
+              Nuestro trabajo está orientado a PyMEs, talleres, consultorios, centros de servicios y negocios que quieren profesionalizar su operación sin complicarse con sistemas difíciles.
+            </p>
           </div>
-        </div>
 
-        <div class="product-card">
-          <h3>Incluye</h3>
-          <ul class="check-list">
-            <li>Servidor local configurado</li>
-            <li>Sistema ERP/CRM instalado</li>
-            <li>Acceso por red interna</li>
-            <li>Backups programados</li>
-            <li>Capacitación inicial</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section id="cloud" class="section cloud-section">
-      <div class="container split">
-        <div>
-          <p class="section-kicker">Nube y escalabilidad</p>
-          <h2>NEXATEC Cloud para empresas que necesitan acceso remoto y continuidad.</h2>
-        </div>
-        <div>
-          <p>
-            El plan cloud permite trabajar desde diferentes ubicaciones, mantener backups externos,
-            recibir soporte mensual y escalar la solución a medida que el negocio crece.
-          </p>
-          <div class="stats">
-            <div>
-              <strong>24/7</strong>
-              <span>Disponibilidad objetivo</span>
+          <div class="about-side">
+            <div class="mini-box">
+              <strong>Enfoque ejecutivo</strong>
+              <span>Sistemas claros, modernos y pensados para uso diario.</span>
             </div>
-            <div>
-              <strong>Backups</strong>
-              <span>Automáticos y externos</span>
+            <div class="mini-box">
+              <strong>Orientado a resultados</strong>
+              <span>Información útil para tomar decisiones y mejorar rentabilidad.</span>
             </div>
-            <div>
-              <strong>SSL</strong>
-              <span>Acceso seguro</span>
+            <div class="mini-box">
+              <strong>Escalable</strong>
+              <span>Soluciones que pueden crecer con el negocio y con nuevos clientes.</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section confidentiality">
-      <div class="container conf-card">
-        <div>
-          <p class="section-kicker">Confidencialidad</p>
-          <h2>Protegemos la información de nuestros clientes.</h2>
+    <section id="contacto">
+      <div class="container">
+        <div class="contact-card">
+          <div class="section-title" style="margin:0 auto 18px; text-align:center;">
+            <div class="mini">Contacto</div>
+            <h2>Hablemos de tu negocio</h2>
+          </div>
+
           <p>
-            En proyectos comerciales y empresariales podemos trabajar con contrato de confidencialidad,
-            cuidando datos operativos, clientes, ventas, procesos internos e información sensible.
+            Si querés implementar ERP, CRM, Business Intelligence, automatización o infraestructura tecnológica, escribinos y coordinamos una consultoría inicial.
           </p>
-        </div>
-        <div class="seal">
-          <span>NDA</span>
-          <small>Contrato de confidencialidad</small>
-        </div>
-      </div>
-    </section>
 
-    <section id="contacto" class="section contact-section">
-      <div class="container contact-card">
-        <p class="section-kicker">Contacto</p>
-        <h2>Solicitá una demo de NEXATEC</h2>
-        <p>
-          Contanos qué tipo de negocio tenés y te mostramos una solución adaptada a tus procesos.
-        </p>
-
-        <div class="hero-actions center-actions">
-          <a class="btn btn-primary" href="https://wa.me/595985293019" target="_blank">
-            Hablar por WhatsApp
-          </a>
-          <a class="btn btn-secondary" href="mailto:nexatecsoluciones@gmail.com">
-            Enviar correo
-          </a>
+          <div class="contact-actions">
+            <a href="https://wa.me/595985293019" target="_blank" class="btn btn-primary">Escribir por WhatsApp</a>
+            <a href="mailto:nexatecsoluciones@gmail.com" class="btn btn-secondary">Enviar correo</a>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="container footer-grid">
-      <div class="brand footer-brand">
-        <div class="brand-mark">
-          <span>N</span>
+  <footer>
+    <div class="container footer-wrap">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="nn3" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#8EF3E5"/>
+                <stop offset="1" stop-color="#49E2D0"/>
+              </linearGradient>
+            </defs>
+            <g fill="none" stroke="url(#nn3)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="60,182 60,58 180,182 180,58"/>
+            </g>
+            <circle cx="180" cy="58" r="15" fill="#B9F9EF"/>
+            <circle cx="60" cy="182" r="9" fill="#2CC3B2"/>
+          </svg>
         </div>
+
         <div class="brand-text">
           <strong>NEXATEC</strong>
-          <small>Soluciones Tecnológicas</small>
+          <span>Soluciones Tecnológicas</span>
         </div>
       </div>
 
-      <p>ERP · CRM · BI · Automatización · Cloud · Servidores Locales</p>
-
+      <p>ERP · CRM · Business Intelligence · Automatización</p>
       <p>© 2026 NEXATEC. Todos los derechos reservados.</p>
     </div>
   </footer>
+
 </body>
 </html>
