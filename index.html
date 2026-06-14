@@ -1,672 +1,753 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-PY">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>NEXATEC | Soluciones Tecnológicas</title>
+  <title>NEXATEC | Soluciones Tecnológicas para PyMEs</title>
+
   <meta
     name="description"
-    content="NEXATEC Soluciones Tecnológicas: ERP, CRM, Business Intelligence, automatización, cloud y servidores locales para empresas y PyMEs."
+    content="NEXATEC Soluciones Tecnológicas: ERP, CRM, Business Intelligence, automatización, nube, servidores locales y sistemas a medida para PyMEs, comercios, talleres, consultorios y empresas."
   />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet"
+  >
 
   <style>
-    :root{
-      --bg:#012924;
-      --bg-2:#01352e;
-      --bg-3:#0a4a41;
-      --card:#0a3a33;
-      --card-2:#115046;
-      --line:rgba(122, 211, 196, 0.15);
-      --text:#f3f7f6;
-      --muted:#a8bbb7;
-      --accent:#49e2d0;
-      --accent-2:#2cc3b2;
-      --pill:#15564a;
-      --shadow:0 25px 80px rgba(0,0,0,.24);
-      --container:1180px;
+    :root {
+      --bg: #022b25;
+      --bg-dark: #00241f;
+      --bg-soft: #073c34;
+      --card: rgba(7, 55, 48, 0.78);
+      --card-strong: rgba(11, 78, 68, 0.92);
+      --line: rgba(138, 226, 211, 0.16);
+      --text: #f3f8f7;
+      --muted: #a9beb9;
+      --muted-2: #d5e3df;
+      --accent: #51ead8;
+      --accent-2: #27c8b5;
+      --accent-soft: rgba(81, 234, 216, 0.12);
+      --shadow: 0 28px 90px rgba(0, 0, 0, 0.30);
+      --container: 1180px;
     }
 
-    *{
-      box-sizing:border-box;
-      margin:0;
-      padding:0;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
-    html{
-      scroll-behavior:smooth;
+    html {
+      scroll-behavior: smooth;
     }
 
-    body{
-      font-family:'Poppins', sans-serif;
+    body {
+      font-family: "Poppins", sans-serif;
       background:
-        radial-gradient(circle at 85% 8%, rgba(56,127,108,0.45) 0, rgba(56,127,108,0.45) 12%, transparent 13%),
-        radial-gradient(circle at 10% 80%, rgba(29,103,89,0.35) 0, rgba(29,103,89,0.35) 14%, transparent 15%),
-        linear-gradient(180deg, #012924 0%, #00251f 100%);
-      color:var(--text);
-      overflow-x:hidden;
+        radial-gradient(circle at 85% 5%, rgba(43, 119, 100, 0.42) 0, rgba(43, 119, 100, 0.42) 12%, transparent 13%),
+        radial-gradient(circle at 12% 78%, rgba(20, 97, 82, 0.34) 0, rgba(20, 97, 82, 0.34) 15%, transparent 16%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-dark) 100%);
+      color: var(--text);
+      overflow-x: hidden;
     }
 
-    a{
-      text-decoration:none;
-      color:inherit;
+    a {
+      text-decoration: none;
+      color: inherit;
     }
 
-    .container{
-      width:min(var(--container), calc(100% - 40px));
-      margin:0 auto;
+    .container {
+      width: min(var(--container), calc(100% - 40px));
+      margin: 0 auto;
     }
 
-    header{
-      position:sticky;
-      top:0;
-      z-index:20;
-      background:rgba(1,41,36,.78);
-      backdrop-filter:blur(12px);
-      border-bottom:1px solid var(--line);
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(2, 43, 37, 0.82);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
     }
 
-    .nav{
-      min-height:86px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:20px;
+    .nav {
+      min-height: 84px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
     }
 
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:14px;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
 
-    .brand-icon{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      background:linear-gradient(180deg, #0f5a4e 0%, #0a4a40 100%);
-      display:grid;
-      place-items:center;
-      box-shadow:0 10px 28px rgba(0,0,0,.18);
-      flex-shrink:0;
-      overflow:hidden;
+    .brand-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #0f5d51 0%, #0b4b42 100%);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+      flex-shrink: 0;
     }
 
-    .brand-icon svg{
-      width:34px;
-      height:34px;
-      display:block;
+    .brand-icon svg {
+      width: 34px;
+      height: 34px;
+      display: block;
     }
 
-    .brand-text{
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
+    .brand-text strong {
+      display: block;
+      font-size: 1.62rem;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0.4px;
     }
 
-    .brand-text strong{
-      font-size:1.65rem;
-      line-height:1;
-      letter-spacing:.5px;
-      font-weight:700;
+    .brand-text span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-top: 6px;
+      font-weight: 400;
     }
 
-    .brand-text span{
-      font-size:.76rem;
-      letter-spacing:4px;
-      text-transform:uppercase;
-      color:var(--muted);
-      margin-top:6px;
-      font-weight:400;
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 26px;
     }
 
-    nav{
-      display:flex;
-      align-items:center;
-      gap:24px;
+    nav a {
+      color: #dce8e5;
+      font-size: 0.94rem;
+      font-weight: 600;
+      transition: 0.18s ease;
     }
 
-    nav a{
-      color:#dce8e5;
-      font-size:.95rem;
-      font-weight:500;
-      transition:.18s ease;
+    nav a:hover {
+      color: var(--accent);
     }
 
-    nav a:hover{
-      color:var(--accent);
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 50px;
+      padding: 0 23px;
+      border-radius: 999px;
+      font-weight: 700;
+      transition: 0.2s ease;
+      border: 1px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
     }
 
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      min-height:50px;
-      padding:0 22px;
-      border-radius:999px;
-      font-weight:600;
-      transition:.2s ease;
-      border:1px solid transparent;
-      cursor:pointer;
+    .btn:hover {
+      transform: translateY(-2px);
     }
 
-    .btn:hover{
-      transform:translateY(-2px);
+    .btn-primary {
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: #06352f;
+      box-shadow: 0 14px 34px rgba(81, 234, 216, 0.22);
     }
 
-    .btn-primary{
-      background:linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
-      color:#07352f;
-      box-shadow:0 14px 34px rgba(73,226,208,.22);
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.045);
+      border-color: var(--line);
+      color: var(--text);
     }
 
-    .btn-secondary{
-      background:rgba(255,255,255,.04);
-      border-color:var(--line);
-      color:var(--text);
+    .btn-outline {
+      background: transparent;
+      border-color: rgba(81, 234, 216, 0.38);
+      color: var(--accent);
     }
 
-    .hero{
-      padding:80px 0 70px;
+    .hero {
+      padding: 78px 0 74px;
     }
 
-    .hero-card{
-      background:linear-gradient(180deg, rgba(1,41,36,.80) 0%, rgba(1,41,36,.65) 100%);
-      border:1px solid var(--line);
-      border-radius:36px;
-      padding:64px 58px;
-      position:relative;
-      overflow:hidden;
-      box-shadow:var(--shadow);
+    .hero-card {
+      background: linear-gradient(180deg, rgba(1, 43, 37, 0.86) 0%, rgba(1, 43, 37, 0.68) 100%);
+      border: 1px solid var(--line);
+      border-radius: 38px;
+      padding: 64px 58px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      min-height: 680px;
+      display: flex;
+      align-items: center;
     }
 
-    .hero-card::before{
-      content:"";
-      position:absolute;
-      width:420px;
-      height:420px;
-      border-radius:50%;
-      background:rgba(35,110,95,.50);
-      top:-170px;
-      right:-110px;
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 430px;
+      height: 430px;
+      border-radius: 50%;
+      background: rgba(47, 123, 106, 0.50);
+      top: -170px;
+      right: -110px;
     }
 
-    .hero-card::after{
-      content:"";
-      position:absolute;
-      width:380px;
-      height:380px;
-      border-radius:50%;
-      background:rgba(14,96,82,.40);
-      bottom:-220px;
-      left:-130px;
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: rgba(16, 102, 87, 0.38);
+      bottom: -220px;
+      left: -130px;
     }
 
-    .hero-inner{
-      position:relative;
-      z-index:2;
-      max-width:900px;
+    .hero-inner {
+      position: relative;
+      z-index: 2;
+      max-width: 920px;
     }
 
-    .hero-brand{
-      display:flex;
-      align-items:center;
-      gap:18px;
-      margin-bottom:46px;
+    .hero-brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 44px;
     }
 
-    .hero-brand .brand-icon{
-      width:72px;
-      height:72px;
-      border-radius:22px;
+    .hero-brand .brand-icon {
+      width: 74px;
+      height: 74px;
+      border-radius: 23px;
     }
 
-    .hero-brand .brand-icon svg{
-      width:42px;
-      height:42px;
+    .hero-brand .brand-icon svg {
+      width: 44px;
+      height: 44px;
     }
 
-    .hero-brand-title{
-      display:flex;
-      flex-direction:column;
+    .hero-brand-title strong {
+      display: block;
+      font-size: 3rem;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0.4px;
     }
 
-    .hero-brand-title strong{
-      font-size:3rem;
-      line-height:1;
-      font-weight:700;
-      letter-spacing:.5px;
+    .hero-brand-title span {
+      display: block;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 6px;
+      font-size: 0.9rem;
+      margin-top: 10px;
     }
 
-    .hero-brand-title span{
-      color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:6px;
-      font-size:.9rem;
-      margin-top:10px;
+    .eyebrow,
+    .mini {
+      color: var(--accent);
+      font-size: 1.02rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      font-weight: 700;
+      margin-bottom: 20px;
     }
 
-    .eyebrow{
-      color:var(--accent);
-      font-size:1.05rem;
-      text-transform:uppercase;
-      letter-spacing:3px;
-      font-weight:600;
-      margin-bottom:22px;
+    h1 {
+      font-size: clamp(2.7rem, 5.2vw, 5.15rem);
+      line-height: 1.06;
+      font-weight: 800;
+      letter-spacing: -1.8px;
+      max-width: 790px;
     }
 
-    h1{
-      font-size:clamp(2.7rem, 5vw, 5rem);
-      line-height:1.08;
-      font-weight:700;
-      letter-spacing:-1.4px;
-      max-width:760px;
+    h1 .accent {
+      color: var(--accent);
     }
 
-    h1 .accent{
-      color:var(--accent);
+    .lead {
+      max-width: 790px;
+      font-size: 1.35rem;
+      line-height: 1.6;
+      color: #c6d5d1;
+      margin-top: 28px;
+      font-weight: 400;
     }
 
-    .hero p.lead{
-      max-width:780px;
-      font-size:1.45rem;
-      line-height:1.55;
-      color:#c6d5d1;
-      margin-top:28px;
-      font-weight:400;
+    .hero-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 40px;
+      margin-bottom: 32px;
     }
 
-    .hero-pills{
-      display:flex;
-      flex-wrap:wrap;
-      gap:14px;
-      margin-top:42px;
-      margin-bottom:34px;
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 24px;
+      border-radius: 999px;
+      background: rgba(18, 95, 80, 0.86);
+      border: 1px solid rgba(122, 211, 196, 0.08);
+      color: #eaf3f1;
+      font-weight: 500;
+      font-size: 1rem;
+      backdrop-filter: blur(8px);
     }
 
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:48px;
-      padding:0 24px;
-      border-radius:999px;
-      background:rgba(18,95,80,.85);
-      border:1px solid rgba(122,211,196,.08);
-      color:#eaf3f1;
-      font-weight:500;
-      font-size:1rem;
-      backdrop-filter:blur(8px);
+    .hero-bottom {
+      margin-top: 22px;
+      padding-top: 28px;
+      border-top: 1px solid rgba(180, 218, 212, 0.14);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
     }
 
-    .hero-bottom{
-      margin-top:24px;
-      padding-top:28px;
-      border-top:1px solid rgba(180, 218, 212, 0.14);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:20px;
-      flex-wrap:wrap;
+    .hero-bottom h3 {
+      font-size: 1.65rem;
+      font-weight: 700;
     }
 
-    .hero-bottom h3{
-      font-size:1.9rem;
-      font-weight:600;
+    .hero-bottom .handle {
+      color: var(--accent);
+      font-size: 1.42rem;
+      font-weight: 600;
     }
 
-    .hero-bottom .handle{
-      color:var(--accent);
-      font-size:1.7rem;
-      font-weight:500;
+    section {
+      padding: 78px 0;
     }
 
-    section{
-      padding:80px 0;
+    .section-title {
+      margin-bottom: 38px;
+      max-width: 810px;
     }
 
-    .section-title{
-      margin-bottom:38px;
-      max-width:760px;
+    .section-title.center {
+      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
     }
 
-    .section-title .mini{
-      color:var(--accent);
-      text-transform:uppercase;
-      letter-spacing:2px;
-      font-size:.95rem;
-      font-weight:600;
-      margin-bottom:12px;
+    .section-title h2 {
+      font-size: clamp(2rem, 4vw, 3.45rem);
+      line-height: 1.15;
+      font-weight: 800;
+      margin-bottom: 16px;
+      letter-spacing: -1.1px;
     }
 
-    .section-title h2{
-      font-size:clamp(2rem, 4vw, 3.4rem);
-      line-height:1.15;
-      font-weight:700;
-      margin-bottom:16px;
-      letter-spacing:-1px;
+    .section-title p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.8;
     }
 
-    .section-title p{
-      color:var(--muted);
-      font-size:1.05rem;
-      line-height:1.8;
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
     }
 
-    .services-grid{
-      display:grid;
-      grid-template-columns:repeat(4, 1fr);
-      gap:20px;
+    .service-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 26px 22px;
+      box-shadow: var(--shadow);
+      transition: 0.2s ease;
     }
 
-    .service-card{
-      background:rgba(10,58,51,.72);
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:26px 22px;
-      box-shadow:var(--shadow);
-      transition:.2s ease;
+    .service-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(81, 234, 216, 0.25);
     }
 
-    .service-card:hover{
-      transform:translateY(-4px);
-      border-color:rgba(73,226,208,.24);
+    .service-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 15px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: #032822;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      margin-bottom: 18px;
     }
 
-    .service-icon{
-      width:48px;
-      height:48px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      font-weight:700;
-      color:#032822;
-      background:linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
-      margin-bottom:18px;
+    .service-card h3 {
+      font-size: 1.18rem;
+      margin-bottom: 10px;
+      font-weight: 700;
     }
 
-    .service-card h3{
-      font-size:1.2rem;
-      margin-bottom:10px;
-      font-weight:600;
+    .service-card p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.75;
     }
 
-    .service-card p{
-      color:var(--muted);
-      font-size:.96rem;
-      line-height:1.75;
+    .plans {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
     }
 
-    .plans{
-      background:linear-gradient(180deg, rgba(255,255,255,.02) 0%, rgba(255,255,255,.01) 100%);
-      border-top:1px solid var(--line);
-      border-bottom:1px solid var(--line);
+    .plan-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+      align-items: stretch;
     }
 
-    .plan-grid{
-      display:grid;
-      grid-template-columns:repeat(3, 1fr);
-      gap:22px;
+    .plan-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 30px;
+      box-shadow: var(--shadow);
+      position: relative;
+      display: flex;
+      flex-direction: column;
     }
 
-    .plan-card{
-      background:rgba(10,58,51,.72);
-      border:1px solid var(--line);
-      border-radius:26px;
-      padding:28px;
-      box-shadow:var(--shadow);
-      position:relative;
+    .plan-card.featured {
+      background: linear-gradient(180deg, rgba(18, 95, 80, 0.94) 0%, rgba(10, 58, 51, 0.95) 100%);
+      border-color: rgba(81, 234, 216, 0.32);
+      transform: translateY(-10px);
     }
 
-    .plan-card.featured{
-      background:linear-gradient(180deg, rgba(18,95,80,.90) 0%, rgba(10,58,51,.92) 100%);
-      border-color:rgba(73,226,208,.28);
-      transform:translateY(-8px);
+    .badge {
+      display: inline-flex;
+      width: fit-content;
+      padding: 8px 13px;
+      border-radius: 999px;
+      background: rgba(81, 234, 216, 0.13);
+      color: var(--accent);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
     }
 
-    .badge{
-      display:inline-flex;
-      padding:7px 12px;
-      border-radius:999px;
-      background:rgba(73,226,208,.12);
-      color:var(--accent);
-      font-size:.78rem;
-      font-weight:600;
-      letter-spacing:1px;
-      text-transform:uppercase;
-      margin-bottom:16px;
+    .badge-hot {
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: #062f2a;
     }
 
-    .plan-card h3{
-      font-size:1.4rem;
-      margin-bottom:10px;
+    .plan-card h3 {
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+      font-weight: 800;
     }
 
-    .price{
-      font-size:2rem;
-      font-weight:700;
-      margin-bottom:12px;
+    .daily-price {
+      font-size: 2.25rem;
+      line-height: 1.05;
+      font-weight: 900;
+      color: var(--text);
+      margin-bottom: 8px;
+      letter-spacing: -0.8px;
     }
 
-    .plan-card p{
-      color:var(--muted);
-      line-height:1.75;
-      font-size:.96rem;
-      margin-bottom:18px;
+    .daily-price span {
+      color: var(--accent);
     }
 
-    .plan-card ul{
-      list-style:none;
-      margin:0 0 24px 0;
-      padding:0;
+    .sub-price {
+      color: var(--muted-2);
+      font-size: 0.95rem;
+      margin-bottom: 18px;
     }
 
-    .plan-card li{
-      position:relative;
-      padding-left:26px;
-      margin-bottom:12px;
-      color:#d7e7e3;
-      font-size:.95rem;
+    .plan-card p {
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 0.96rem;
+      margin-bottom: 20px;
     }
 
-    .plan-card li::before{
-      content:"•";
-      position:absolute;
-      left:8px;
-      top:-1px;
-      color:var(--accent);
-      font-size:1.1rem;
+    .plan-card ul {
+      list-style: none;
+      margin: 0 0 28px 0;
+      padding: 0;
     }
 
-    .about-grid{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:24px;
-      align-items:stretch;
+    .plan-card li {
+      position: relative;
+      padding-left: 26px;
+      margin-bottom: 12px;
+      color: #d7e7e3;
+      font-size: 0.94rem;
+      line-height: 1.5;
+    }
+
+    .plan-card li::before {
+      content: "•";
+      position: absolute;
+      left: 8px;
+      top: -1px;
+      color: var(--accent);
+      font-size: 1.1rem;
+    }
+
+    .plan-card .btn {
+      margin-top: auto;
+      width: 100%;
+    }
+
+    .note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.55;
+      text-align: center;
+    }
+
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 24px;
+      align-items: stretch;
     }
 
     .about-card,
-    .contact-card{
-      background:rgba(10,58,51,.72);
-      border:1px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
+    .contact-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
     }
 
-    .about-card{
-      padding:34px;
+    .about-card {
+      padding: 36px;
     }
 
-    .about-card p{
-      color:var(--muted);
-      line-height:1.9;
-      margin-top:14px;
-      font-size:1rem;
+    .about-card h3 {
+      font-size: 1.45rem;
+      margin-bottom: 12px;
     }
 
-    .about-side{
-      display:grid;
-      gap:18px;
+    .about-card p {
+      color: var(--muted);
+      line-height: 1.9;
+      margin-top: 14px;
+      font-size: 1rem;
     }
 
-    .mini-box{
-      background:rgba(18,80,70,.76);
-      border:1px solid var(--line);
-      border-radius:22px;
-      padding:22px;
+    .about-side {
+      display: grid;
+      gap: 18px;
     }
 
-    .mini-box strong{
-      display:block;
-      font-size:1.2rem;
-      margin-bottom:6px;
+    .mini-box {
+      background: rgba(18, 80, 70, 0.76);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 22px;
     }
 
-    .mini-box span{
-      color:var(--muted);
-      line-height:1.7;
-      font-size:.95rem;
+    .mini-box strong {
+      display: block;
+      font-size: 1.18rem;
+      margin-bottom: 6px;
     }
 
-    .contact-card{
-      padding:42px;
-      text-align:center;
+    .mini-box span {
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 0.94rem;
     }
 
-    .contact-card h2{
-      font-size:2.35rem;
-      margin-bottom:16px;
+    .contact-card {
+      padding: 44px;
+      text-align: center;
+      background:
+        radial-gradient(circle at top, rgba(81, 234, 216, 0.10), transparent 45%),
+        rgba(7, 55, 48, 0.78);
     }
 
-    .contact-card p{
-      color:var(--muted);
-      max-width:760px;
-      margin:0 auto 28px;
-      line-height:1.8;
-      font-size:1.02rem;
+    .contact-card h2 {
+      font-size: clamp(2rem, 4vw, 3.1rem);
+      margin-bottom: 16px;
+      letter-spacing: -1px;
     }
 
-    .contact-actions{
-      display:flex;
-      justify-content:center;
-      gap:16px;
-      flex-wrap:wrap;
+    .contact-card p {
+      color: var(--muted);
+      max-width: 780px;
+      margin: 0 auto 28px;
+      line-height: 1.8;
+      font-size: 1.02rem;
     }
 
-    footer{
-      padding:28px 0 34px;
-      border-top:1px solid var(--line);
+    .contact-data {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 26px;
     }
 
-    .footer-wrap{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:20px;
-      flex-wrap:wrap;
+    .contact-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 17px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid var(--line);
+      color: #e6f3f0;
+      font-weight: 600;
     }
 
-    .footer-wrap p{
-      color:var(--muted);
-      font-size:.93rem;
+    .contact-actions {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
-    @media (max-width: 1100px){
-      .services-grid{
-        grid-template-columns:repeat(2, 1fr);
+    footer {
+      padding: 30px 0 36px;
+      border-top: 1px solid var(--line);
+    }
+
+    .footer-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer-wrap p {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 1120px) {
+      .services-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
 
-      .plan-grid{
-        grid-template-columns:1fr;
+      .plan-grid {
+        grid-template-columns: 1fr;
       }
 
-      .plan-card.featured{
-        transform:none;
+      .plan-card.featured {
+        transform: none;
       }
 
-      .about-grid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width: 860px){
-      nav{
-        display:none;
-      }
-
-      .hero-card{
-        padding:40px 26px;
-      }
-
-      .hero-brand{
-        align-items:flex-start;
-      }
-
-      .hero-brand-title strong{
-        font-size:2.15rem;
-      }
-
-      .hero-brand-title span{
-        letter-spacing:3px;
-        font-size:.75rem;
-      }
-
-      .hero p.lead{
-        font-size:1.1rem;
-      }
-
-      .hero-bottom h3{
-        font-size:1.4rem;
-      }
-
-      .hero-bottom .handle{
-        font-size:1.25rem;
+      .about-grid {
+        grid-template-columns: 1fr;
       }
     }
 
-    @media (max-width: 640px){
-      .container{
-        width:min(calc(100% - 24px), var(--container));
+    @media (max-width: 860px) {
+      nav {
+        display: none;
       }
 
-      .brand-text strong{
-        font-size:1.3rem;
+      .hero-card {
+        padding: 42px 28px;
+        min-height: auto;
       }
 
-      .brand-text span{
-        letter-spacing:2px;
-        font-size:.68rem;
+      .hero-brand {
+        align-items: flex-start;
       }
 
-      .services-grid{
-        grid-template-columns:1fr;
+      .hero-brand-title strong {
+        font-size: 2.15rem;
       }
 
-      .hero-pills{
-        gap:10px;
+      .hero-brand-title span {
+        letter-spacing: 3px;
+        font-size: 0.75rem;
       }
 
-      .pill{
-        width:100%;
-        justify-content:flex-start;
+      .lead {
+        font-size: 1.1rem;
       }
 
-      h1{
-        font-size:2.45rem;
+      .hero-bottom h3 {
+        font-size: 1.35rem;
       }
 
-      .hero-bottom{
-        align-items:flex-start;
-        flex-direction:column;
+      .hero-bottom .handle {
+        font-size: 1.18rem;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        width: min(calc(100% - 24px), var(--container));
+      }
+
+      .brand-text strong {
+        font-size: 1.28rem;
+      }
+
+      .brand-text span {
+        letter-spacing: 2px;
+        font-size: 0.66rem;
+      }
+
+      .nav .btn {
+        display: none;
+      }
+
+      .services-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-pills {
+        gap: 10px;
+      }
+
+      .pill {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      h1 {
+        font-size: 2.45rem;
+      }
+
+      .hero-bottom {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .daily-price {
+        font-size: 1.9rem;
       }
     }
   </style>
 </head>
+
 <body>
 
   <header>
@@ -674,13 +755,7 @@
       <a href="#" class="brand">
         <div class="brand-icon" aria-hidden="true">
           <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="nn1" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#8EF3E5"/>
-                <stop offset="1" stop-color="#49E2D0"/>
-              </linearGradient>
-            </defs>
-            <g fill="none" stroke="url(#nn1)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+            <g fill="none" stroke="#51EAD8" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="60,182 60,58 180,182 180,58"/>
             </g>
             <circle cx="180" cy="58" r="15" fill="#B9F9EF"/>
@@ -701,7 +776,13 @@
         <a href="#contacto">Contacto</a>
       </nav>
 
-      <a href="https://wa.me/595985293019" target="_blank" class="btn btn-secondary">WhatsApp</a>
+      <a
+        href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20agendar%20una%20consultor%C3%ADa%20gratuita%20para%20mi%20negocio.%20%C2%BFPodemos%20coordinar%20una%20demo%3F"
+        target="_blank"
+        class="btn btn-secondary"
+      >
+        WhatsApp
+      </a>
     </div>
   </header>
 
@@ -714,13 +795,7 @@
             <div class="hero-brand">
               <div class="brand-icon" aria-hidden="true">
                 <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="nn2" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0" stop-color="#8EF3E5"/>
-                      <stop offset="1" stop-color="#49E2D0"/>
-                    </linearGradient>
-                  </defs>
-                  <g fill="none" stroke="url(#nn2)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+                  <g fill="none" stroke="#51EAD8" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="60,182 60,58 180,182 180,58"/>
                   </g>
                   <circle cx="180" cy="58" r="15" fill="#B9F9EF"/>
@@ -737,8 +812,7 @@
             <div class="eyebrow">Hola, somos NEXATEC</div>
 
             <h1>
-              Transformamos tu
-              PyME con tecnología
+              Transformamos tu PyME con tecnología
               <span class="accent">a medida</span>
             </h1>
 
@@ -755,7 +829,7 @@
 
             <div class="hero-bottom">
               <h3>Agendá tu consultoría gratuita</h3>
-              <div class="handle">@nexatecpy</div>
+              <div class="handle">0985 293 019</div>
             </div>
 
           </div>
@@ -769,7 +843,8 @@
           <div class="mini">Servicios</div>
           <h2>Soluciones concretas para ventas, operación y crecimiento.</h2>
           <p>
-            Diseñamos sistemas y herramientas tecnológicas para comercios, talleres, consultorios, barberías, centros de belleza y empresas que necesitan orden, control y escalabilidad.
+            Diseñamos sistemas y herramientas tecnológicas para comercios, talleres, consultorios,
+            barberías, centros de belleza y empresas que necesitan orden, control y escalabilidad.
           </p>
         </div>
 
@@ -803,59 +878,91 @@
 
     <section id="planes" class="plans">
       <div class="container">
-        <div class="section-title">
+        <div class="section-title center">
           <div class="mini">Planes</div>
-          <h2>Modelos de servicio adaptados a cada cliente.</h2>
+          <h2>Elegí cómo querés empezar con NEXATEC.</h2>
           <p>
-            Podés elegir una solución local, un esquema mensual con soporte o un proyecto completo a medida.
+            Te damos alternativas claras: mensual accesible en la nube, pago único local o una solución exclusiva a medida.
           </p>
         </div>
 
         <div class="plan-grid">
+
           <article class="plan-card">
-            <div class="badge">Pago único</div>
-            <h3>NexaBox Local</h3>
-            <div class="price">Desde ₲ 9.900.000</div>
-            <p>Ideal para negocios que prefieren infraestructura local y quieren evitar una mensualidad fija de hosting.</p>
+            <div class="badge">Entrada mensual</div>
+            <h3>NEXATEC Cloud</h3>
+            <div class="daily-price"><span>₲ 20.000</span> / día</div>
+            <div class="sub-price">Plan mensual desde ₲ 550.000</div>
+            <p>
+              Ideal para empezar sin comprar servidor. Accedés desde cualquier lugar, con backups, soporte mensual y actualizaciones menores.
+            </p>
             <ul>
-              <li>Servidor local instalado</li>
-              <li>Sistema ERP/CRM configurado</li>
-              <li>Red interna del negocio</li>
+              <li>ERP/CRM alojado en la nube</li>
+              <li>Acceso remoto para el negocio</li>
               <li>Backups automáticos</li>
-              <li>Capacitación inicial</li>
+              <li>Soporte mensual incluido</li>
+              <li>Actualizaciones menores</li>
             </ul>
-            <a href="https://wa.me/595985293019" target="_blank" class="btn btn-secondary">Consultar</a>
+            <a
+              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20solicitar%20el%20plan%20NEXATEC%20Cloud.%20Me%20interesa%20el%20plan%20desde%20Gs.%20550.000%20al%20mes%2C%20aprox.%20Gs.%2020.000%20por%20d%C3%ADa.%20%C2%BFPodemos%20coordinar%20una%20demo%3F"
+              target="_blank"
+              class="btn btn-secondary"
+            >
+              Solicitar plan nube
+            </a>
+            <div class="note">Una forma simple y accesible de digitalizar tu negocio sin inversión inicial alta.</div>
           </article>
 
           <article class="plan-card featured">
-            <div class="badge">Recomendado</div>
-            <h3>NEXATEC Cloud</h3>
-            <div class="price">Desde ₲ 550.000 / mes</div>
-            <p>Perfecto para clientes que buscan acceso remoto, soporte continuo, seguridad y crecimiento escalable.</p>
+            <div class="badge badge-hot">Más elegido por PyMEs</div>
+            <h3>NexaBox Local</h3>
+            <div class="daily-price">Pago <span>único</span></div>
+            <div class="sub-price">Desde ₲ 9.900.000 · sin mensualidad obligatoria</div>
+            <p>
+              Tu sistema funcionando dentro de tu comercio. Pagás una vez y usás la solución local de forma permanente.
+            </p>
             <ul>
-              <li>ERP/CRM en la nube</li>
-              <li>Acceso remoto</li>
-              <li>Backups frecuentes</li>
-              <li>Soporte mensual</li>
-              <li>Actualizaciones menores</li>
+              <li>Servidor local instalado</li>
+              <li>Sistema ERP/CRM configurado</li>
+              <li>Acceso por red interna del negocio</li>
+              <li>Backups locales automáticos</li>
+              <li>Capacitación inicial incluida</li>
             </ul>
-            <a href="https://wa.me/595985293019" target="_blank" class="btn btn-primary">Solicitar demo</a>
+            <a
+              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20informaci%C3%B3n%20del%20plan%20NexaBox%20Local%20de%20pago%20%C3%BAnico.%20Me%20interesa%20tener%20el%20sistema%20local%20sin%20mensualidad%20obligatoria.%20%C2%BFPodemos%20hablar%3F"
+              target="_blank"
+              class="btn btn-primary"
+            >
+              Quiero pago único
+            </a>
+            <div class="note">Recomendado para comercios que quieren evitar cuotas mensuales de infraestructura.</div>
           </article>
 
           <article class="plan-card">
-            <div class="badge">A medida</div>
-            <h3>Enterprise</h3>
-            <div class="price">Cotización personalizada</div>
-            <p>Para empresas que necesitan automatización avanzada, BI, CRM operativo e integraciones específicas.</p>
+            <div class="badge">Exclusivo</div>
+            <h3>NEXATEC Enterprise</h3>
+            <div class="daily-price">A <span>medida</span></div>
+            <div class="sub-price">Proyecto personalizado según necesidad</div>
+            <p>
+              Para empresas que necesitan exclusividad, procesos propios, automatización avanzada, BI, integraciones e infraestructura dedicada.
+            </p>
             <ul>
-              <li>ERP + CRM + BI</li>
-              <li>Procesos a medida</li>
-              <li>Infraestructura dedicada</li>
-              <li>Implementación profesional</li>
-              <li>Confidencialidad y soporte</li>
+              <li>ERP + CRM + BI personalizado</li>
+              <li>Automatizaciones específicas</li>
+              <li>Integraciones con sistemas externos</li>
+              <li>Infraestructura dedicada o cloud</li>
+              <li>Contrato de confidencialidad</li>
             </ul>
-            <a href="https://wa.me/595985293019" target="_blank" class="btn btn-secondary">Cotizar</a>
+            <a
+              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20agendar%20una%20reuni%C3%B3n%20para%20una%20soluci%C3%B3n%20Enterprise%20exclusiva%20y%20a%20medida.%20%C2%BFQu%C3%A9%20horario%20tienen%20disponible%3F"
+              target="_blank"
+              class="btn btn-outline"
+            >
+              Agendar reunión
+            </a>
+            <div class="note">Pensado para empresas que buscan una solución diferencial, privada y escalable.</div>
           </article>
+
         </div>
       </div>
     </section>
@@ -866,18 +973,23 @@
           <div class="mini">Quiénes somos</div>
           <h2>Somos una empresa de soluciones tecnológicas para negocios reales.</h2>
           <p>
-            En NEXATEC ayudamos a transformar procesos manuales en sistemas simples, medibles y escalables. Nuestro enfoque combina desarrollo, operación, automatización y análisis para que cada cliente pueda vender mejor, controlar más y crecer con información confiable.
+            En NEXATEC ayudamos a transformar procesos manuales en sistemas simples, medibles y escalables.
+            Nuestro enfoque combina desarrollo, operación, automatización y análisis para que cada cliente
+            pueda vender mejor, controlar más y crecer con información confiable.
           </p>
         </div>
 
         <div class="about-grid">
           <div class="about-card">
-            <h3 style="font-size:1.4rem; margin-bottom:10px;">Qué hacemos</h3>
+            <h3>Qué hacemos</h3>
             <p>
-              Implementamos soluciones tecnológicas para empresas que necesitan gestionar ventas, clientes, agenda, stock, caja, equipos, servicios, marketing y reportes. También diseñamos infraestructura local y cloud, con respaldo, seguridad y proyección de crecimiento.
+              Implementamos soluciones tecnológicas para empresas que necesitan gestionar ventas, clientes,
+              agenda, stock, caja, equipos, servicios, marketing y reportes.
             </p>
             <p>
-              Nuestro trabajo está orientado a PyMEs, talleres, consultorios, centros de servicios y negocios que quieren profesionalizar su operación sin complicarse con sistemas difíciles.
+              También diseñamos infraestructura local y cloud, con respaldo, seguridad y proyección de crecimiento.
+              Nuestro trabajo está orientado a PyMEs, talleres, consultorios, centros de servicios y negocios que
+              quieren profesionalizar su operación sin complicarse con sistemas difíciles.
             </p>
           </div>
 
@@ -902,18 +1014,41 @@
     <section id="contacto">
       <div class="container">
         <div class="contact-card">
-          <div class="section-title" style="margin:0 auto 18px; text-align:center;">
+          <div class="section-title center" style="margin-bottom: 18px;">
             <div class="mini">Contacto</div>
             <h2>Hablemos de tu negocio</h2>
+            <p>
+              Si querés implementar ERP, CRM, Business Intelligence, automatización o infraestructura tecnológica,
+              escribinos y coordinamos una consultoría inicial.
+            </p>
           </div>
 
-          <p>
-            Si querés implementar ERP, CRM, Business Intelligence, automatización o infraestructura tecnológica, escribinos y coordinamos una consultoría inicial.
-          </p>
+          <div class="contact-data">
+            <a
+              class="contact-pill"
+              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20agendar%20una%20consultor%C3%ADa%20gratuita%20para%20mi%20negocio.%20%C2%BFPodemos%20coordinar%20una%20demo%3F"
+              target="_blank"
+            >
+              WhatsApp: 0985 293 019
+            </a>
+
+            <a class="contact-pill" href="mailto:nexasolucionestec@gmail.com">
+              nexasolucionestec@gmail.com
+            </a>
+          </div>
 
           <div class="contact-actions">
-            <a href="https://wa.me/595985293019" target="_blank" class="btn btn-primary">Escribir por WhatsApp</a>
-            <a href="mailto:nexatecsoluciones@gmail.com" class="btn btn-secondary">Enviar correo</a>
+            <a
+              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20agendar%20una%20consultor%C3%ADa%20gratuita%20para%20mi%20negocio.%20%C2%BFPodemos%20coordinar%20una%20demo%3F"
+              target="_blank"
+              class="btn btn-primary"
+            >
+              Escribir por WhatsApp
+            </a>
+
+            <a href="mailto:nexasolucionestec@gmail.com" class="btn btn-secondary">
+              Enviar correo
+            </a>
           </div>
         </div>
       </div>
@@ -925,13 +1060,7 @@
       <div class="brand">
         <div class="brand-icon" aria-hidden="true">
           <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="nn3" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#8EF3E5"/>
-                <stop offset="1" stop-color="#49E2D0"/>
-              </linearGradient>
-            </defs>
-            <g fill="none" stroke="url(#nn3)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+            <g fill="none" stroke="#51EAD8" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="60,182 60,58 180,182 180,58"/>
             </g>
             <circle cx="180" cy="58" r="15" fill="#B9F9EF"/>
