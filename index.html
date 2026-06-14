@@ -153,6 +153,8 @@
       border: 1px solid transparent;
       cursor: pointer;
       white-space: nowrap;
+      font-family: "Poppins", sans-serif;
+      font-size: 0.95rem;
     }
 
     .btn:hover {
@@ -327,12 +329,6 @@
       font-weight: 700;
     }
 
-    .hero-bottom .handle {
-      color: var(--accent);
-      font-size: 1.42rem;
-      font-weight: 600;
-    }
-
     section {
       padding: 78px 0;
     }
@@ -432,8 +428,9 @@
 
     .plan-card.featured {
       background: linear-gradient(180deg, rgba(18, 95, 80, 0.94) 0%, rgba(10, 58, 51, 0.95) 100%);
-      border-color: rgba(81, 234, 216, 0.32);
+      border-color: rgba(81, 234, 216, 0.36);
       transform: translateY(-10px);
+      box-shadow: 0 35px 105px rgba(0, 0, 0, 0.38);
     }
 
     .badge {
@@ -695,10 +692,6 @@
       .hero-bottom h3 {
         font-size: 1.35rem;
       }
-
-      .hero-bottom .handle {
-        font-size: 1.18rem;
-      }
     }
 
     @media (max-width: 640px) {
@@ -746,6 +739,21 @@
       }
     }
   </style>
+
+  <script>
+    const WHATSAPP_PHONE = "595985293019";
+
+    function openWhatsApp(message) {
+      const encodedMessage = encodeURIComponent(message);
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      const url = isMobile
+        ? `https://wa.me/${WHATSAPP_PHONE}?text=${encodedMessage}`
+        : `https://web.whatsapp.com/send?phone=${WHATSAPP_PHONE}&text=${encodedMessage}`;
+
+      window.open(url, "_blank");
+    }
+  </script>
 </head>
 
 <body>
@@ -776,13 +784,13 @@
         <a href="#contacto">Contacto</a>
       </nav>
 
-      <a
-        href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20agendar%20una%20consultor%C3%ADa%20gratuita%20para%20mi%20negocio.%20%C2%BFPodemos%20coordinar%20una%20demo%3F"
-        target="_blank"
+      <button
+        type="button"
         class="btn btn-secondary"
+        onclick="openWhatsApp('Hola NEXATEC, quiero agendar una consultoría gratuita para mi negocio. ¿Podemos coordinar una demo?')"
       >
         WhatsApp
-      </a>
+      </button>
     </div>
   </header>
 
@@ -829,7 +837,13 @@
 
             <div class="hero-bottom">
               <h3>Agendá tu consultoría gratuita</h3>
-              <div class="handle">0985 293 019</div>
+              <button
+                type="button"
+                class="btn btn-primary"
+                onclick="openWhatsApp('Hola NEXATEC, quiero agendar una consultoría gratuita para mi negocio. ¿Podemos coordinar una demo?')"
+              >
+                Contactar por WhatsApp
+              </button>
             </div>
 
           </div>
@@ -882,61 +896,11 @@
           <div class="mini">Planes</div>
           <h2>Elegí cómo querés empezar con NEXATEC.</h2>
           <p>
-            Te damos alternativas claras: mensual accesible en la nube, pago único local o una solución exclusiva a medida.
+            El plan cloud es la opción más elegida para empezar rápido, sin comprar servidor y con soporte mensual.
           </p>
         </div>
 
         <div class="plan-grid">
-
-          <article class="plan-card">
-            <div class="badge">Entrada mensual</div>
-            <h3>NEXATEC Cloud</h3>
-            <div class="daily-price"><span>₲ 20.000</span> / día</div>
-            <div class="sub-price">Plan mensual desde ₲ 550.000</div>
-            <p>
-              Ideal para empezar sin comprar servidor. Accedés desde cualquier lugar, con backups, soporte mensual y actualizaciones menores.
-            </p>
-            <ul>
-              <li>ERP/CRM alojado en la nube</li>
-              <li>Acceso remoto para el negocio</li>
-              <li>Backups automáticos</li>
-              <li>Soporte mensual incluido</li>
-              <li>Actualizaciones menores</li>
-            </ul>
-            <a
-              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20solicitar%20el%20plan%20NEXATEC%20Cloud.%20Me%20interesa%20el%20plan%20desde%20Gs.%20550.000%20al%20mes%2C%20aprox.%20Gs.%2020.000%20por%20d%C3%ADa.%20%C2%BFPodemos%20coordinar%20una%20demo%3F"
-              target="_blank"
-              class="btn btn-secondary"
-            >
-              Solicitar plan nube
-            </a>
-            <div class="note">Una forma simple y accesible de digitalizar tu negocio sin inversión inicial alta.</div>
-          </article>
-
-          <article class="plan-card featured">
-            <div class="badge badge-hot">Más elegido por PyMEs</div>
-            <h3>NexaBox Local</h3>
-            <div class="daily-price">Pago <span>único</span></div>
-            <div class="sub-price">Desde ₲ 9.900.000 · sin mensualidad obligatoria</div>
-            <p>
-              Tu sistema funcionando dentro de tu comercio. Pagás una vez y usás la solución local de forma permanente.
-            </p>
-            <ul>
-              <li>Servidor local instalado</li>
-              <li>Sistema ERP/CRM configurado</li>
-              <li>Acceso por red interna del negocio</li>
-              <li>Backups locales automáticos</li>
-              <li>Capacitación inicial incluida</li>
-            </ul>
-            <a
-              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20informaci%C3%B3n%20del%20plan%20NexaBox%20Local%20de%20pago%20%C3%BAnico.%20Me%20interesa%20tener%20el%20sistema%20local%20sin%20mensualidad%20obligatoria.%20%C2%BFPodemos%20hablar%3F"
-              target="_blank"
-              class="btn btn-primary"
-            >
-              Quiero pago único
-            </a>
-            <div class="note">Recomendado para comercios que quieren evitar cuotas mensuales de infraestructura.</div>
-          </article>
 
           <article class="plan-card">
             <div class="badge">Exclusivo</div>
@@ -953,14 +917,64 @@
               <li>Infraestructura dedicada o cloud</li>
               <li>Contrato de confidencialidad</li>
             </ul>
-            <a
-              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20agendar%20una%20reuni%C3%B3n%20para%20una%20soluci%C3%B3n%20Enterprise%20exclusiva%20y%20a%20medida.%20%C2%BFQu%C3%A9%20horario%20tienen%20disponible%3F"
-              target="_blank"
+            <button
+              type="button"
               class="btn btn-outline"
+              onclick="openWhatsApp('Hola NEXATEC, quiero agendar una reunión para una solución Enterprise exclusiva y a medida. ¿Qué horario tienen disponible?')"
             >
               Agendar reunión
-            </a>
+            </button>
             <div class="note">Pensado para empresas que buscan una solución diferencial, privada y escalable.</div>
+          </article>
+
+          <article class="plan-card featured">
+            <div class="badge badge-hot">Más elegido por PyMEs</div>
+            <h3>NEXATEC Cloud</h3>
+            <div class="daily-price"><span>₲ 20.000</span> / día</div>
+            <div class="sub-price">Plan mensual desde ₲ 550.000</div>
+            <p>
+              Ideal para empezar sin comprar servidor. Accedés desde cualquier lugar, con backups, soporte mensual y actualizaciones menores.
+            </p>
+            <ul>
+              <li>ERP/CRM alojado en la nube</li>
+              <li>Acceso remoto para el negocio</li>
+              <li>Backups automáticos</li>
+              <li>Soporte mensual incluido</li>
+              <li>Actualizaciones menores</li>
+            </ul>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="openWhatsApp('Hola NEXATEC, quiero solicitar el plan NEXATEC Cloud. Me interesa el plan desde Gs. 550.000 al mes, aproximadamente Gs. 20.000 por día. ¿Podemos coordinar una demo?')"
+            >
+              Solicitar plan nube
+            </button>
+            <div class="note">La forma más simple de digitalizar tu negocio sin inversión inicial alta.</div>
+          </article>
+
+          <article class="plan-card">
+            <div class="badge">Pago único local</div>
+            <h3>NexaBox Local</h3>
+            <div class="daily-price">Pago <span>único</span></div>
+            <div class="sub-price">Desde ₲ 9.900.000 · sin mensualidad obligatoria</div>
+            <p>
+              Tu sistema funcionando dentro de tu comercio. Pagás una vez y usás la solución local de forma permanente.
+            </p>
+            <ul>
+              <li>Servidor local instalado</li>
+              <li>Sistema ERP/CRM configurado</li>
+              <li>Acceso por red interna del negocio</li>
+              <li>Backups locales automáticos</li>
+              <li>Capacitación inicial incluida</li>
+            </ul>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="openWhatsApp('Hola NEXATEC, quiero información del plan NexaBox Local de pago único. Me interesa tener el sistema local sin mensualidad obligatoria. ¿Podemos hablar?')"
+            >
+              Consultar pago único
+            </button>
+            <div class="note">Para comercios que prefieren infraestructura local propia.</div>
           </article>
 
         </div>
@@ -1024,13 +1038,13 @@
           </div>
 
           <div class="contact-data">
-            <a
+            <button
+              type="button"
               class="contact-pill"
-              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20agendar%20una%20consultor%C3%ADa%20gratuita%20para%20mi%20negocio.%20%C2%BFPodemos%20coordinar%20una%20demo%3F"
-              target="_blank"
+              onclick="openWhatsApp('Hola NEXATEC, quiero agendar una consultoría gratuita para mi negocio. ¿Podemos coordinar una demo?')"
             >
-              WhatsApp: 0985 293 019
-            </a>
+              Contactar por WhatsApp
+            </button>
 
             <a class="contact-pill" href="mailto:nexasolucionestec@gmail.com">
               nexasolucionestec@gmail.com
@@ -1038,13 +1052,13 @@
           </div>
 
           <div class="contact-actions">
-            <a
-              href="https://wa.me/595985293019?text=Hola%20NEXATEC%2C%20quiero%20agendar%20una%20consultor%C3%ADa%20gratuita%20para%20mi%20negocio.%20%C2%BFPodemos%20coordinar%20una%20demo%3F"
-              target="_blank"
+            <button
+              type="button"
               class="btn btn-primary"
+              onclick="openWhatsApp('Hola NEXATEC, quiero agendar una consultoría gratuita para mi negocio. ¿Podemos coordinar una demo?')"
             >
               Escribir por WhatsApp
-            </a>
+            </button>
 
             <a href="mailto:nexasolucionestec@gmail.com" class="btn btn-secondary">
               Enviar correo
