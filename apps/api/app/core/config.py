@@ -78,8 +78,18 @@ class Settings(BaseSettings):
         )
 
     @property
+    def is_development(self) -> bool:
+        return self.nexatec_env == "development"
+
+    @property
     def is_production(self) -> bool:
-        return self.nexatec_env == "production"
+        """Endurecimiento de seguridad (cookies Secure, ocultar /docs,
+        HSTS): se aplica en 'staging' igual que en 'production'. Staging
+        se sirve por HTTPS real (Cloudflare Tunnel) y no es un entorno de
+        desarrollo, aunque el nombre lo sugiera -- por eso el bypass de
+        Turnstile NO usa esta propiedad (ver app/security/turnstile.py),
+        que exige exactamente NEXATEC_ENV=development."""
+        return self.nexatec_env in ("staging", "production")
 
 
 @lru_cache

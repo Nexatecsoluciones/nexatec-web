@@ -108,7 +108,31 @@ Decision: se versionan. `next dev` los recrea igual en cada arranque si
 faltan, asi que ignorarlos solo generaria diffs no deseados sin evitar su
 existencia; commitearlos idénticos evita ese ruido.
 
-## 6. Estado de este documento
+## 6. Staging y same-origin BFF
 
-Este archivo se actualiza en cada fase. Última actualización: FASE 2 (arquitectura
-backend, control plane, autenticación).
+Detalle completo en `docs/DEPLOYMENT.md` y `docs/CLOUDFLARE.md`. Resumen de
+la decision: el navegador solo conoce `https://staging.nexatecpy.com`;
+nunca `127.0.0.1:4301`/`4302`. Se evaluaron tres opciones para esto:
+
+1. **`rewrites()` de `next.config.ts`** -- simple, pero opaco: no da
+   control explicito sobre que headers se reenvian.
+2. **Reverse proxy interno (nginx/Caddy) delante de Next.js** -- correcto,
+   pero agrega un proceso mas que administrar y no reutiliza nada del
+   codigo ya escrito.
+3. **Route Handler catch-all (BFF) en Next.js** -- elegida. Vive en
+   `apps/web/src/app/api/[...path]/route.ts`. Reenvia explicitamente
+   `Host`, `X-Forwarded-Proto`, `X-Forwarded-For`/`CF-Connecting-IP` hacia
+   `NEXATEC_INTERNAL_API_URL` (server-only). No puede convertirse en open
+   proxy porque el destino esta hardcodeado a `/api/<path>` contra un host
+   fijo, nunca un host que venga del request.
+
+`is_production` en `app/core/config.py` se redefinio para cubrir tanto
+`staging` como `production` (cookies `Secure`, ocultar `/docs`, HSTS);
+el bypass de Turnstile en cambio exige exactamente
+`NEXATEC_ENV=development`, nunca "no produccion" en general -- son
+propiedades distintas a proposito, ver `docs/SECURITY.md`.
+
+## 7. Estado de este documento
+
+Este archivo se actualiza en cada fase. Última actualización: staging
+(Cloudflare Tunnel + Access sobre FASE 4).

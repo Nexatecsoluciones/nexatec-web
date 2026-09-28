@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Card, TopNav } from "@/components/ui";
+import { useTurnstileToken } from "@/components/turnstile";
 import { api, ApiError } from "@/lib/api";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
@@ -13,19 +14,28 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { token: turnstileToken, widget: turnstileWidget, reset: resetTurnstile } =
+    useTurnstileToken(TURNSTILE_SITE_KEY);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("Completa la verificacion anti-bot antes de continuar.");
+      return;
+    }
+
     setLoading(true);
     try {
-      // TODO(FASE 7): reemplazar "dev" por el token real del widget de
-      // Turnstile una vez configurado NEXT_PUBLIC_TURNSTILE_SITE_KEY.
-      const turnstileToken = TURNSTILE_SITE_KEY ? "" : "dev";
+      // Sin site key configurada (solo puede pasar en development, ver
+      // app/security/turnstile.py) no hay widget y se envia vacio: la API
+      // decide si eso es aceptable segun el entorno, nunca el cliente.
       const { role } = await api.login(email, password, turnstileToken);
       const adminRoles = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "BILLING"];
       router.push(adminRoles.includes(role) ? "/admin" : "/portal");
     } catch (err) {
+      resetTurnstile();
       if (err instanceof ApiError) {
         setError(
           err.status === 429
@@ -71,6 +81,8 @@ export default function LoginPage() {
                 autoComplete="current-password"
               />
             </label>
+
+            {turnstileWidget}
 
             {error && <p className="text-sm font-semibold text-red-300">{error}</p>}
 

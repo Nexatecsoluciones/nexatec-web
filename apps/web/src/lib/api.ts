@@ -1,8 +1,10 @@
-// Cliente HTTP minimo hacia la API. Nunca guarda secretos ni tokens: la
-// sesion vive en una cookie HttpOnly que el navegador maneja solo, este
-// codigo del lado cliente nunca la lee ni la escribe directamente.
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4301";
+// Cliente HTTP minimo hacia la API. Same-origin: siempre pega a rutas
+// relativas /api/* de este mismo Next.js (ver
+// src/app/api/[...path]/route.ts), que reenvia server-side hacia la API
+// interna. El navegador nunca conoce el host/puerto real de FastAPI.
+// Nunca guarda secretos ni tokens: la sesion vive en una cookie HttpOnly
+// que el navegador maneja solo, este codigo del lado cliente nunca la lee
+// ni la escribe directamente.
 
 export class ApiError extends Error {
   status: number;
@@ -13,7 +15,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(path, {
     ...init,
     credentials: "include",
     headers: {

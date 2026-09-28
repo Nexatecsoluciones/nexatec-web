@@ -9,12 +9,13 @@ _VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 async def verify_turnstile_token(token: str, remote_ip: str | None) -> bool:
     """Valida el token de Turnstile SIEMPRE server-side. Si no hay claves
-    configuradas (FASE 7 pendiente), se rechaza en produccion y se deja
-    pasar solo en development para no bloquear el desarrollo local."""
+    configuradas todavia, el bypass depende EXCLUSIVAMENTE de
+    NEXATEC_ENV=development -- nunca de "no produccion" (staging, test,
+    o cualquier valor futuro deben exigir Turnstile real). Nadie puede
+    activar este bypass modificando una peticion publica: es una
+    variable de entorno server-side, no algo que llegue en el request."""
     if not settings.turnstile_secret_key:
-        if settings.is_production:
-            return False
-        return True
+        return settings.is_development
 
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.post(

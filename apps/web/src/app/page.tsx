@@ -12,7 +12,11 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 async function getSystems(): Promise<SystemOut[]> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4301";
+  // Server Component: corre en el servidor de Next.js, nunca en el
+  // navegador -- puede hablar directo con la API interna sin pasar por
+  // el BFF de src/app/api/[...path]/route.ts (ese es solo para llamadas
+  // que salen del navegador).
+  const apiUrl = process.env.NEXATEC_INTERNAL_API_URL ?? "http://127.0.0.1:4301";
   try {
     const res = await fetch(`${apiUrl}/api/systems`, { cache: "no-store" });
     if (!res.ok) return [];
