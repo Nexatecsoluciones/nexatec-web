@@ -60,6 +60,27 @@ decide el frontend.
 - Passwords de DBs de tenant cifradas en reposo (Fernet), en tabla
   separada nunca serializada por ningun endpoint.
 
+## Media / almacenamiento de archivos (FASE 5)
+
+- Validacion por contenido real (magic bytes), nunca por extension ni por
+  el `Content-Type` que declara el cliente (`app/services/file_validation.py`).
+- Limite de tamaño por upload (10 MB hoy, configurable).
+- Imagenes reescritas sin metadata EXIF (puede contener geolocalizacion u
+  otros datos del dispositivo de origen) y con thumbnail generado
+  server-side -- nunca se confia en dimensiones declaradas por el cliente.
+- Archivos nunca servidos directo desde la API ni desde una URL publica
+  fija: siempre una URL firmada de Garage (S3) con TTL corto (5 min),
+  generada solo despues de verificar membership del tenant sobre ese
+  recurso especifico -- mismo mecanismo anti-IDOR que el resto del
+  sistema. Un Tenant A no puede leer ni borrar un archivo de Tenant B (ver
+  test dedicado en `tests/test_media.py`).
+- Claves de objeto derivadas de UUIDs, nunca del nombre de archivo
+  original del usuario (evita path traversal y colisiones).
+- Garage escucha solo en `127.0.0.1`, nunca expuesto a Internet ni
+  siquiera via el Tunnel.
+- Antivirus (ClamAV) sobre uploads: NO implementado todavia, queda
+  preparado como mejora futura (ver `docs/ARCHITECTURE.md`).
+
 ## Provisioning / PostgreSQL
 
 - Rol de aplicacion `nexatec_app`: sin `SUPERUSER`, `CREATEDB` ni

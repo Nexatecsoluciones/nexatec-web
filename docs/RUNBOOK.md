@@ -7,6 +7,7 @@
 | `nexatec-api-staging.service` | FastAPI, `127.0.0.1:4301` |
 | `nexatec-web-staging.service` | Next.js standalone, `127.0.0.1:4302` |
 | `cloudflared` | Tunnel hacia Cloudflare (instalado por `cloudflared service install`, fuera del control de este repo) |
+| `nexatec-garage.service` | Garage, storage S3-compatible, `127.0.0.1:3900` (S3) / `127.0.0.1:3901` (RPC) |
 
 Ninguno depende de mantener una sesion SSH abierta (`systemd`, `enabled`,
 sobreviven a un `restart` individual y a boot).
@@ -24,6 +25,18 @@ sudo systemctl restart nexatec-web-staging.service
 
 sudo systemctl status cloudflared --no-pager
 sudo systemctl restart cloudflared   # solo si hace falta
+
+sudo systemctl restart nexatec-garage.service
+```
+
+Administracion de Garage (buckets, claves) via su propia CLI, usando el
+config fuera del repo:
+
+```bash
+export GARAGE_CONFIG=/etc/nexatec/garage.toml
+garage status
+garage bucket list
+garage bucket info nexatec-media
 ```
 
 **Nunca** reiniciar el servidor completo para esto -- aloja tambien

@@ -12,7 +12,7 @@ entorno). Se actualiza a medida que avanzan las fases.
 | Backend / API | FastAPI (Python 3.12) + Pydantic + SQLAlchemy 2.x + Alembic | Tipado fuerte con Pydantic (valida entrada, evita mass assignment), async nativo, Alembic da migraciones controladas (expand/migrate/contract), y el equipo puede razonar sobre RBAC/multi-tenant explícitamente en cada endpoint en vez de vía convención de ORM. |
 | Base de datos | PostgreSQL 16 (ya instalado de forma nativa en el servidor) | Ver sección 2: se reutiliza la instancia nativa existente en vez de contenedores adicionales. |
 | Cache / colas | Valkey | Requisito del usuario: alternativa 100% open-source a Redis, mismo protocolo. |
-| Almacenamiento de objetos | MinIO (S3-compatible) | Se añade en FASE 5, no antes — no se instala hasta que haya un flujo real de subida de archivos que lo necesite. |
+| Almacenamiento de objetos | Garage (S3-compatible) | Ver nota abajo: MinIO Community Server quedo archivado/sin mantenimiento, se reemplazo por una alternativa activa. |
 | Reverse proxy / exposición | Nginx existente + Cloudflare Tunnel (a configurar en FASE 7) | El servidor no tiene Cloudflare Tunnel activo todavía; se documenta y prepara en FASE 7, no se inventa una configuración de un tunnel inexistente. |
 
 No se usa Node.js para el backend: FastAPI + SQLAlchemy + Alembic dan control
@@ -132,7 +132,41 @@ el bypass de Turnstile en cambio exige exactamente
 `NEXATEC_ENV=development`, nunca "no produccion" en general -- son
 propiedades distintas a proposito, ver `docs/SECURITY.md`.
 
-## 7. Estado de este documento
+## 7. Storage (FASE 5): Garage en vez de MinIO
 
-Este archivo se actualiza en cada fase. Última actualización: staging
-(Cloudflare Tunnel + Access sobre FASE 4).
+El plan original nombraba MinIO como preferencia. Al ir a instalarlo se
+encontro que **MinIO Community Server esta archivado**: el servidor de
+descargas oficial devuelve `410 Gone` con un aviso explicito ("no longer
+maintained... does not provide security updates"). Instalar un storage
+server sin actualizaciones de seguridad para guardar archivos de clientes
+no es aceptable, asi que se eligio una alternativa activa:
+
+**Garage** (`garagehq.deuxfleurs.fr`) -- binario unico en Rust, API S3
+compatible, pensado especificamente para self-hosting de baja escala
+(justo este caso), mantenido activamente. Corre como servicio nativo
+(`nexatec-garage.service`, ver `docs/RUNBOOK.md`), escucha solo en
+`127.0.0.1:3900` (S3 API) y `127.0.0.1:3901` (RPC interno del cluster),
+nunca expuesto a Internet. Configurado como cluster de un solo nodo
+(`replication_factor = 1`), con 3 GB de capacidad asignada (conservador
+frente a los ~6-7 GB libres reales del servidor en el momento de
+instalarlo).
+
+Diseño de claves de objeto: `tenant-<hex8>/[demo|prod]/<system-hex8 o
+"general">/<uuid>.<ext>` (`app/services/storage.py::build_object_key`) --
+igual que las bases de datos de tenant, nunca se deriva de texto de
+usuario. Los archivos nunca se sirven directo: `app/routers/media.py`
+siempre devuelve una URL firmada de corta duracion (5 min), generada
+recien despues de verificar membership del tenant (mismo mecanismo
+anti-IDOR que el resto del sistema).
+
+Validacion de archivos por contenido real (`app/services/file_validation.py`,
+magic bytes -- nunca extension ni Content-Type declarado), imagenes
+reescritas sin EXIF y con thumbnail generado (`app/services/image_processing.py`,
+Pillow). Video/FFmpeg queda deliberadamente sin implementar -- no hay
+todavia un flujo que lo necesite; se documenta como preparado, no como
+hecho.
+
+## 8. Estado de este documento
+
+Este archivo se actualiza en cada fase. Última actualización: FASE 5
+(storage con Garage).

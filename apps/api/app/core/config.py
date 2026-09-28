@@ -46,6 +46,24 @@ class Settings(BaseSettings):
     turnstile_site_key: str = Field(default="", alias="NEXATEC_TURNSTILE_SITE_KEY")
     turnstile_secret_key: str = Field(default="", alias="NEXATEC_TURNSTILE_SECRET_KEY")
 
+    # Storage S3-compatible (Garage, self-hosted -- MinIO Community quedo
+    # archivado/sin mantenimiento, ver docs/ARCHITECTURE.md). Nunca se
+    # expone host/credenciales al cliente: la API genera URLs firmadas de
+    # corta duracion bajo demanda.
+    storage_s3_endpoint: str = Field(alias="NEXATEC_STORAGE_S3_ENDPOINT")
+    storage_s3_region: str = Field(alias="NEXATEC_STORAGE_S3_REGION")
+    storage_s3_bucket: str = Field(alias="NEXATEC_STORAGE_S3_BUCKET")
+    storage_s3_access_key: str = Field(alias="NEXATEC_STORAGE_S3_ACCESS_KEY")
+    storage_s3_secret_key: str = Field(alias="NEXATEC_STORAGE_S3_SECRET_KEY")
+    # URL publica desde la que un navegador puede alcanzar el storage. En
+    # dev, igual al endpoint interno (todo esta en localhost). En
+    # staging/production, pasa por el BFF de Next.js
+    # (apps/web/src/app/storage/[...path]/route.ts) para que el navegador
+    # nunca necesite conocer 127.0.0.1:3900. Las URLs firmadas se generan
+    # contra el endpoint interno y solo se les reescribe el scheme+host,
+    # nunca la firma/query string -- asi la firma sigue siendo valida.
+    storage_public_base_url: str = Field(alias="NEXATEC_STORAGE_PUBLIC_BASE_URL")
+
     @field_validator("cors_allowed_origins")
     @classmethod
     def no_wildcard_cors(cls, v: str) -> str:
