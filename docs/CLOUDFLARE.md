@@ -1,5 +1,49 @@
 # Cloudflare (Tunnel + Access) para staging
 
+## Estado actual (en vivo)
+
+- URL: **https://staging.nexatecpy.com** -- ONLINE.
+- Tunnel: `nexatec-platform` (ID `dd49f962-6860-4db8-8d6a-894005746b01`) --
+  HEALTHY, 1 replica activa en `servidor-aplicaciones` (este servidor).
+- Ruta: `staging.nexatecpy.com` -> `http://127.0.0.1:4302` (HTTP, no HTTPS
+  -- ver incidente 3 mas abajo).
+- DNS: CNAME `staging.nexatecpy.com` -> `dd49f962-....cfargotunnel.com`,
+  Proxied. Verificado con `dig` contra 1.1.1.1, 8.8.8.8 y 9.9.9.9.
+- **Cloudflare Access: PENDIENTE.** El sitio esta publico en Internet
+  ahora mismo (decision consciente de posponerlo, tomada explicitamente
+  por el usuario) -- ver seccion "Cloudflare Access" mas abajo para
+  configurarlo cuando se retome.
+
+## Incidentes durante la configuracion (resueltos, documentados por transparencia)
+
+1. **Token del tunnel visible en el chat de esta sesion.** Al correr
+   `cloudflared service install <token>` se genero ademas, por error, un
+   segundo proceso en foreground (`cloudflared tunnel run --token ...`)
+   corrido manualmente. Un diagnostico con `ps aux` capturo ese argumento
+   completo. El proceso duplicado se mato de inmediato; el usuario decidio
+   explicitamente NO rotar el token dado el alcance limitado (un token de
+   tunnel solo permite correr un conector para ESE tunnel, no da acceso a
+   la cuenta de Cloudflare). Queda documentado como decision consciente,
+   no como omision.
+2. **Ruta creada por error sobre el apex `nexatecpy.com`** en vez de
+   `staging.nexatecpy.com` (confusion en el campo de hostname del
+   formulario "Add route"). Se detecto con `dig` inmediatamente, y se
+   corrigio editando el registro DNS (cambiar `Name` de `nexatecpy.com` a
+   `staging`) -- confirmado que el apex volvio a no resolver.
+3. **502 / `tls: first record does not look like a TLS handshake`**:
+   la ruta del tunnel quedo creada con Service Type `HTTPS` por defecto
+   (`https://127.0.0.1:4302`), pero Next.js standalone en este servidor
+   sirve HTTP plano en ese puerto (TLS lo termina Cloudflare en el borde,
+   no hace falta HTTPS interno). Se corrigio cambiando el Service Type de
+   la ruta a `HTTP`.
+
+**Aprendizaje operativo importante**: la UI de "Routes" del Tunnel
+(antes "Public Hostname") **no siempre crea el registro DNS
+automaticamente** -- cuando no lo hace, muestra el aviso "This domain
+isn't a zone on your account" incluso para un subdominio de una zona que
+si existe. La via confiable es ir directo a **DNS -> Records** del
+dominio y crear/editar el CNAME ahi a mano.
+
 ## Estado del dominio (verificado, no asumido)
 
 `nexatecpy.com` esta delegado a Cloudflare (`lee.ns.cloudflare.com`,

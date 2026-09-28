@@ -112,6 +112,12 @@ decide el frontend.
 
 ## Riesgos pendientes (honesto, no exhaustivo)
 
+- **`https://staging.nexatecpy.com` esta publico en Internet ahora
+  mismo** -- Cloudflare Access todavia no esta configurado (decision
+  consciente de posponerlo, ver `docs/CLOUDFLARE.md`). Cualquiera con la
+  URL puede ver la app, incluida `/login` (aunque no puede entrar sin
+  credenciales validas: el RBAC de NEXATEC sigue aplicando igual). Cerrar
+  esto es la accion de seguridad pendiente mas importante hoy.
 - Sin CSP ni el resto de security headers de FASE 7 todavia.
 - Sin ClamAV / validacion de uploads (no hay uploads implementados aun).
 - Turnstile en staging usa claves de prueba (ver `docs/CLOUDFLARE.md` para
