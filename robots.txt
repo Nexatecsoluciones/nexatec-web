@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.nexatec.com.py/sitemap.xml
+Sitemap: https://www.nexatecpy.com/sitemap.xml
