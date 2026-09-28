@@ -1,0 +1,4 @@
+# Falso positivo confirmado manualmente (FASE 4 checkpoint, 2026-09-28):
+# apps/api/app/main.py linea 12, `docs_url=None if settings.is_production`.
+# La regla generic-api-key matchea por entropia, no es un secreto real.
+1ab4b47e332bf67de743cc42c5cdecbdb26ffc2c:apps/api/app/main.py:generic-api-key:12

@@ -91,7 +91,24 @@ Autenticación: contraseñas con Argon2id (`argon2-cffi`), sesiones server-side
 (no JWT en localStorage), cookies `Secure`, `HttpOnly`, `SameSite=Lax`.
 Detalle completo en `docs/SECURITY.md` (a expandir en FASE 7).
 
-## 5. Estado de este documento
+## 5. `apps/web/AGENTS.md` y `apps/web/CLAUDE.md`
+
+Verificado en FASE 4 (no se asumio, se comprobo en el codigo fuente): estos
+archivos los genera **Next.js 16 mismo**, no Claude ni ningun agente externo.
+El generador vive en `node_modules/next/dist/server/lib/generate-agent-files.js`
+(y en `create-next-app/helpers/generate-agent-files.ts`): cuando `next dev`
+detecta un agente de codigo IA en el entorno, escribe un bloque estatico
+delimitado por marcadores (`<!-- BEGIN:nextjs-agent-rules -->` / `END`) que
+solo dice "esta version de Next.js puede tener cambios que rompen tu
+conocimiento previo, revisa `node_modules/next/dist/docs/` antes de escribir
+codigo". No contiene secretos, credenciales ni instrucciones que ejecuten
+nada; es texto informativo. `CLAUDE.md` solo referencia `@AGENTS.md`.
+
+Decision: se versionan. `next dev` los recrea igual en cada arranque si
+faltan, asi que ignorarlos solo generaria diffs no deseados sin evitar su
+existencia; commitearlos idénticos evita ese ruido.
+
+## 6. Estado de este documento
 
 Este archivo se actualiza en cada fase. Última actualización: FASE 2 (arquitectura
 backend, control plane, autenticación).

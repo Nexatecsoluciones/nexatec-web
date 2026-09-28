@@ -1,0 +1,8 @@
+title = "NEXATEC gitleaks config"
+
+[extend]
+useDefault = true
+
+# Los falsos positivos confirmados manualmente se documentan y excluyen
+# por fingerprint en .gitleaksignore (no aqui), para que quede trazado
+# el commit/linea exactos que se revisaron.
