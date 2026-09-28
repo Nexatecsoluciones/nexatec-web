@@ -64,6 +64,15 @@ class Settings(BaseSettings):
     # nunca la firma/query string -- asi la firma sigue siendo valida.
     storage_public_base_url: str = Field(alias="NEXATEC_STORAGE_PUBLIC_BASE_URL")
 
+    # Bancard (vPOS). Nombres tomados de la documentacion oficial vPOS
+    # Compra Simple 0.3.1 -- ver docs/PAYMENTS.md. Vacios por defecto: sin
+    # cuenta de comercio real todavia, el checkout con tarjeta responde un
+    # error explicito en vez de fallar de forma confusa (ver
+    # app/services/payments/bancard.py).
+    bancard_env: Literal["staging", "production"] = Field(default="staging", alias="BANCARD_ENV")
+    bancard_public_key: str = Field(default="", alias="BANCARD_PUBLIC_KEY")
+    bancard_private_key: str = Field(default="", alias="BANCARD_PRIVATE_KEY")
+
     @field_validator("cors_allowed_origins")
     @classmethod
     def no_wildcard_cors(cls, v: str) -> str:

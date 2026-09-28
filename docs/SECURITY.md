@@ -60,6 +60,34 @@ decide el frontend.
 - Passwords de DBs de tenant cifradas en reposo (Fernet), en tabla
   separada nunca serializada por ningun endpoint.
 
+## Pagos (FASE 6)
+
+Detalle completo, incluidas las fuentes de la documentacion de Bancard,
+en `docs/PAYMENTS.md`. Resumen de seguridad:
+
+- Monto SIEMPRE calculado server-side desde `Plan`, nunca aceptado del
+  cliente (test dedicado).
+- Ningun dato de tarjeta toca este servidor (checkout hospedado de
+  Bancard) -- prohibido ademas explicitamente por la documentacion
+  oficial de Bancard.
+- Webhook de Bancard fail-closed: sin `BANCARD_PRIVATE_KEY` configurada,
+  la verificacion siempre rechaza. Con clave configurada, se recalcula el
+  MD5 documentado y se compara -- un `amount`/`currency` manipulado en
+  transito invalida el token (test con payload manipulado que confirma
+  que la orden nunca queda aprobada).
+- Idempotencia por `shop_process_id` (Bancard no expone un event_id
+  propio): reenvios del mismo webhook no reprocesan una orden ya
+  terminal.
+- `NUMERIC(15,2)`, nunca `float`, para todo monto.
+- Aprobar/rechazar una transferencia es exclusivo de roles admin
+  globales -- un `CLIENT_ADMIN` no puede aprobar ni siquiera su propia
+  orden (test dedicado, 403).
+- Mismo mecanismo anti-IDOR de siempre sobre `PaymentOrder` y sobre el
+  comprobante de transferencia (un tenant no puede adjuntar el
+  comprobante de otro tenant a su propia orden).
+- Pendiente: reconciliacion periodica (`get_confirmation`/`rollback`) no
+  esta agendada todavia -- requiere un scheduler que no existe aun.
+
 ## Media / almacenamiento de archivos (FASE 5)
 
 - Validacion por contenido real (magic bytes), nunca por extension ni por

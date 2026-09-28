@@ -61,6 +61,7 @@ export function TopNav({ activePath }: { activePath: string }) {
     { href: "/portal", label: "Portal" },
     { href: "/admin", label: "Admin" },
     { href: "/admin/clientes", label: "Clientes" },
+    { href: "/admin/pagos", label: "Pagos" },
   ];
 
   return (

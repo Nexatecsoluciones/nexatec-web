@@ -176,4 +176,31 @@ export const api = {
     }),
   suspendDemo: (demoId: string) =>
     request<DemoInstanceOut>(`/api/admin/demos/${demoId}/suspend`, { method: "POST" }),
+
+  // --- Admin: pagos ---
+  listPaymentOrdersAdmin: (statusFilter?: string) =>
+    request<PaymentOrderOut[]>(
+      `/api/admin/payment-orders${statusFilter ? `?status_filter=${statusFilter}` : ""}`,
+    ),
+  approvePaymentOrder: (orderId: string, note?: string) =>
+    request<PaymentOrderOut>(`/api/admin/payment-orders/${orderId}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
+  rejectPaymentOrder: (orderId: string, note?: string) =>
+    request<PaymentOrderOut>(`/api/admin/payment-orders/${orderId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
 };
+
+export interface PaymentOrderOut {
+  id: string;
+  tenant_id: string;
+  plan_id: string;
+  method: "BANK_TRANSFER" | "BANCARD_CARD";
+  status: string;
+  amount: string;
+  currency: string;
+  created_at: string;
+}
