@@ -9,10 +9,16 @@
   -- ver incidente 3 mas abajo).
 - DNS: CNAME `staging.nexatecpy.com` -> `dd49f962-....cfargotunnel.com`,
   Proxied. Verificado con `dig` contra 1.1.1.1, 8.8.8.8 y 9.9.9.9.
-- **Cloudflare Access: PENDIENTE.** El sitio esta publico en Internet
-  ahora mismo (decision consciente de posponerlo, tomada explicitamente
-  por el usuario) -- ver seccion "Cloudflare Access" mas abajo para
-  configurarlo cuando se retome.
+- **Cloudflare Access: NO CONFIGURADO.** El sitio esta publico en
+  Internet ahora mismo. Se intento configurar (Zero Trust -> Access ->
+  Applications -> Self-hosted) pero el dashboard de Cloudflare devolvio
+  un error de JavaScript propio ("Error al ejecutar 'removeChild' en
+  'Node'") de forma persistente al guardar la politica, incluso despues
+  de recargar -- un bug del lado de Cloudflare, no de esta configuracion.
+  Decision explicita del usuario: continuar sin Access por ahora y
+  retomarlo mas adelante (probar otro navegador/ventana de incognito, o
+  reintentar cuando el dashboard lo permita). Ver el riesgo activo
+  correspondiente en `docs/SECURITY.md`.
 
 ## Incidentes durante la configuracion (resueltos, documentados por transparencia)
 
