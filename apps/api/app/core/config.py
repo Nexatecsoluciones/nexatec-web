@@ -21,6 +21,20 @@ class Settings(BaseSettings):
     control_db_user: str = Field(alias="NEXATEC_CONTROL_DB_USER")
     control_db_password: str = Field(alias="NEXATEC_CONTROL_DB_PASSWORD")
 
+    # Rol de PostgreSQL separado, usado EXCLUSIVAMENTE por el servicio de
+    # provisioning (crear DB/rol por tenant+sistema+entorno). El rol de la
+    # app normal (control_db_user de arriba) no tiene CREATEDB/CREATEROLE.
+    # Ver docs/ARCHITECTURE.md seccion "Provisioning".
+    provisioner_db_host: str = Field(alias="NEXATEC_PROVISIONER_DB_HOST")
+    provisioner_db_port: int = Field(alias="NEXATEC_PROVISIONER_DB_PORT")
+    provisioner_db_user: str = Field(alias="NEXATEC_PROVISIONER_DB_USER")
+    provisioner_db_password: str = Field(alias="NEXATEC_PROVISIONER_DB_PASSWORD")
+
+    # Clave simetrica (Fernet) para cifrar passwords de DBs de tenant en
+    # reposo. Generar con: python -c "from cryptography.fernet import
+    # Fernet; print(Fernet.generate_key().decode())"
+    db_credentials_encryption_key: str = Field(alias="NEXATEC_DB_CREDENTIALS_ENCRYPTION_KEY")
+
     api_port: int = Field(alias="NEXATEC_API_PORT")
 
     session_secret: str = Field(alias="NEXATEC_SESSION_SECRET", min_length=32)
@@ -51,6 +65,16 @@ class Settings(BaseSettings):
         return (
             f"postgresql+psycopg://{self.control_db_user}:{self.control_db_password}"
             f"@{self.control_db_host}:{self.control_db_port}/{self.control_db_name}"
+        )
+
+    @property
+    def provisioner_maintenance_db_url(self) -> str:
+        """Conexion del rol de provisioning a la DB de mantenimiento
+        `postgres` (requerida para poder ejecutar CREATE DATABASE, que no
+        puede correr dentro de una transaccion contra la DB que se crea)."""
+        return (
+            f"postgresql+psycopg://{self.provisioner_db_user}:{self.provisioner_db_password}"
+            f"@{self.provisioner_db_host}:{self.provisioner_db_port}/postgres"
         )
 
     @property

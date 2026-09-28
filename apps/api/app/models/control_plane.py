@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.models.tenancy_enums import TenantStatus
 from app.security.roles import Role
 
 
@@ -34,12 +35,20 @@ class Tenant(Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     slug: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
     legal_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[TenantStatus] = mapped_column(
+        Enum(TenantStatus, name="tenant_status"), nullable=False, default=TenantStatus.ACTIVE
+    )
     # Soft delete: un tenant deshabilitado no se borra (retencion de datos,
-    # facturacion, auditoria), solo se marca.
+    # facturacion, auditoria), solo se marca. Distinto de `status`: un
+    # tenant SUSPENDED sigue existiendo y puede reactivarse; deleted_at
+    # es la baja logica definitiva.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     users: Mapped[list["User"]] = relationship(back_populates="tenant")
