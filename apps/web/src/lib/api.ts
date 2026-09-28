@@ -68,6 +68,55 @@ export interface SystemOut {
   sort_order: number;
 }
 
+export type TenantStatus = "ACTIVE" | "SUSPENDED" | "ARCHIVED";
+export type TenantMemberRole = "CLIENT_ADMIN" | "CLIENT_USER";
+export type Environment = "DEMO" | "PRODUCTION";
+export type ProvisioningStatus =
+  | "REQUESTED"
+  | "PROVISIONING"
+  | "READY"
+  | "FAILED"
+  | "DEPROVISIONING"
+  | "DEPROVISIONED";
+
+export interface TenantOut {
+  id: string;
+  slug: string;
+  legal_name: string;
+  display_name: string;
+  status: TenantStatus;
+  created_at: string;
+}
+
+export interface TenantUserOut {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  email: string;
+  role: TenantMemberRole;
+  status: string;
+  invite_token: string | null;
+}
+
+export interface DemoInstanceOut {
+  id: string;
+  tenant_id: string;
+  system_id: string;
+  system_access_id: string;
+  status: ProvisioningStatus;
+  starts_at: string | null;
+  expires_at: string | null;
+}
+
+export interface MySystemOut {
+  system_access_id: string;
+  system_slug: string;
+  system_name: string;
+  environment: Environment;
+  status: string;
+  expires_at: string | null;
+}
+
 export const api = {
   me: () => request<CurrentUser>("/api/auth/me"),
   login: (email: string, password: string, turnstileToken: string) =>
@@ -90,4 +139,39 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  // --- Portal (cliente autenticado) ---
+  myUsers: () => request<MySystemOut[]>("/api/portal/my-systems"),
+  requestAccess: (systemAccessId: string) =>
+    request<{ status: string; message: string }>(
+      `/api/portal/my-systems/${systemAccessId}/access`,
+      { method: "POST" },
+    ),
+
+  // --- Admin: tenants ---
+  listTenants: () => request<TenantOut[]>("/api/admin/tenants"),
+  createTenant: (data: { slug: string; legal_name: string; display_name: string }) =>
+    request<TenantOut>("/api/admin/tenants", { method: "POST", body: JSON.stringify(data) }),
+  listTenantUsers: (tenantId: string) =>
+    request<TenantUserOut[]>(`/api/admin/tenants/${tenantId}/users`),
+  assignTenantUser: (
+    tenantId: string,
+    data: { email: string; role: TenantMemberRole; create_if_missing?: boolean },
+  ) =>
+    request<TenantUserOut>(`/api/admin/tenants/${tenantId}/users`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // --- Admin: demos ---
+  listDemos: () => request<DemoInstanceOut[]>("/api/admin/demos"),
+  createDemo: (data: { tenant_id: string; system_id: string; duration_days?: number }) =>
+    request<DemoInstanceOut>("/api/admin/demos", { method: "POST", body: JSON.stringify(data) }),
+  renewDemo: (demoId: string, extraDays: number) =>
+    request<DemoInstanceOut>(`/api/admin/demos/${demoId}/renew`, {
+      method: "POST",
+      body: JSON.stringify({ extra_days: extraDays }),
+    }),
+  suspendDemo: (demoId: string) =>
+    request<DemoInstanceOut>(`/api/admin/demos/${demoId}/suspend`, { method: "POST" }),
 };
