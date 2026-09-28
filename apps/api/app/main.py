@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.routers import auth, password_reset
+from app.routers import auth, password_reset, systems
 
 settings = get_settings()
 
@@ -68,3 +68,5 @@ async def ready():
 
 app.include_router(auth.router)
 app.include_router(password_reset.router)
+app.include_router(systems.router)
+app.include_router(systems.admin_router)
