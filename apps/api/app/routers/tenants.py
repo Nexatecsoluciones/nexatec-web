@@ -33,6 +33,14 @@ class TenantCreate(BaseModel):
     slug: str = Field(min_length=2, max_length=80)
     legal_name: str = Field(min_length=2, max_length=200)
     display_name: str = Field(min_length=2, max_length=120)
+    ruc: str | None = Field(default=None, max_length=30)
+    primary_email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    country: str | None = Field(default="PY", max_length=2)
+    city: str | None = Field(default=None, max_length=100)
+    contact_name: str | None = Field(default=None, max_length=200)
+    contact_email: EmailStr | None = None
+    contact_phone: str | None = Field(default=None, max_length=40)
 
     def validated_slug(self) -> str:
         if not _SLUG_RE.match(self.slug):
@@ -44,6 +52,14 @@ class TenantUpdate(BaseModel):
     legal_name: str | None = Field(default=None, min_length=2, max_length=200)
     display_name: str | None = Field(default=None, min_length=2, max_length=120)
     status: TenantStatus | None = None
+    ruc: str | None = Field(default=None, max_length=30)
+    primary_email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    country: str | None = Field(default=None, max_length=2)
+    city: str | None = Field(default=None, max_length=100)
+    contact_name: str | None = Field(default=None, max_length=200)
+    contact_email: EmailStr | None = None
+    contact_phone: str | None = Field(default=None, max_length=40)
 
 
 class TenantOut(BaseModel):
@@ -52,6 +68,14 @@ class TenantOut(BaseModel):
     legal_name: str
     display_name: str
     status: TenantStatus
+    ruc: str | None
+    primary_email: str | None
+    phone: str | None
+    country: str | None
+    city: str | None
+    contact_name: str | None
+    contact_email: str | None
+    contact_phone: str | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -103,6 +127,14 @@ def create_tenant(
         legal_name=payload.legal_name,
         display_name=payload.display_name,
         status=TenantStatus.ACTIVE,
+        ruc=payload.ruc,
+        primary_email=payload.primary_email,
+        phone=payload.phone,
+        country=payload.country,
+        city=payload.city,
+        contact_name=payload.contact_name,
+        contact_email=payload.contact_email,
+        contact_phone=payload.contact_phone,
     )
     db.add(tenant)
     db.flush()

@@ -5,7 +5,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.routers import auth, demos, media, password_reset, payments, portal, system_access, systems, tenants
+from app.routers import (
+    admin_users,
+    auth,
+    config_center,
+    dashboard,
+    demo_requests,
+    demos,
+    jobs,
+    media,
+    password_reset,
+    payments,
+    portal,
+    service_registry,
+    system_access,
+    system_status,
+    systems,
+    tenants,
+)
+from app.routers import health as health_router
 
 settings = get_settings()
 
@@ -76,3 +94,11 @@ app.include_router(demos.router)
 app.include_router(portal.router)
 app.include_router(media.router)
 app.include_router(payments.router)
+app.include_router(system_status.router)
+app.include_router(config_center.router)
+app.include_router(service_registry.router)
+app.include_router(demo_requests.router)
+app.include_router(jobs.router)
+app.include_router(dashboard.router)
+app.include_router(health_router.router)
+app.include_router(admin_users.router)

@@ -39,6 +39,17 @@ class Tenant(Base):
     status: Mapped[TenantStatus] = mapped_column(
         Enum(TenantStatus, name="tenant_status"), nullable=False, default=TenantStatus.ACTIVE
     )
+
+    ruc: Mapped[str | None] = mapped_column(String(30))
+    primary_email: Mapped[str | None] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(String(40))
+    country: Mapped[str | None] = mapped_column(String(2), default="PY")
+    city: Mapped[str | None] = mapped_column(String(100))
+
+    contact_name: Mapped[str | None] = mapped_column(String(200))
+    contact_email: Mapped[str | None] = mapped_column(String(255))
+    contact_phone: Mapped[str | None] = mapped_column(String(40))
+
     # Soft delete: un tenant deshabilitado no se borra (retencion de datos,
     # facturacion, auditoria), solo se marca. Distinto de `status`: un
     # tenant SUSPENDED sigue existiendo y puede reactivarse; deleted_at
@@ -67,6 +78,7 @@ class User(Base):
         UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(200))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[Role] = mapped_column(Enum(Role, name="user_role"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

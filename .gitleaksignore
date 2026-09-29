@@ -2,3 +2,9 @@
 # apps/api/app/main.py linea 12, `docs_url=None if settings.is_production`.
 # La regla generic-api-key matchea por entropia, no es un secreto real.
 1ab4b47e332bf67de743cc42c5cdecbdb26ffc2c:apps/api/app/main.py:generic-api-key:12
+
+# Falso positivo confirmado manualmente (FASE 6, 2026-09-28):
+# apps/api/tests/test_bancard_provider.py linea 28, string literal de
+# prueba "clave-privada-de-prueba-40-caracteres-x" usado para verificar el
+# algoritmo de firma MD5 de Bancard -- no es una credencial real.
+1b8c5af18428d4065ce1c68302cd854db0c43d67:apps/api/tests/test_bancard_provider.py:generic-api-key:28
