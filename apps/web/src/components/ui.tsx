@@ -89,6 +89,80 @@ export function TopNav({ activePath }: { activePath: string }) {
   );
 }
 
+const ADMIN_NAV = [
+  { href: "/admin", label: "Dashboard" },
+  { href: "/admin/clientes", label: "Clientes" },
+  { href: "/admin/usuarios", label: "Usuarios" },
+  { href: "/admin/productos", label: "Productos" },
+  { href: "/admin/demos", label: "Demos" },
+  { href: "/admin/planes", label: "Planes" },
+  { href: "/admin/pagos", label: "Pagos" },
+  { href: "/admin/jobs", label: "Jobs" },
+  { href: "/admin/estado", label: "Estado" },
+];
+
+export function AdminLayout({
+  activePath,
+  userEmail,
+  userRole,
+  onLogout,
+  children,
+}: {
+  activePath: string;
+  userEmail: string;
+  userRole: string;
+  onLogout: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen flex-1 flex-col lg:flex-row">
+      <aside className="flex flex-col gap-1 border-b border-nx-line bg-black/20 p-4 lg:w-64 lg:border-b-0 lg:border-r lg:p-6">
+        <Link href="/admin" className="mb-6 flex items-center gap-3 px-2">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-b from-[#0f5d51] to-[#0b4b42]">
+            <NexatecMark />
+          </span>
+          <div>
+            <p className="text-sm font-extrabold leading-tight">NEXATEC</p>
+            <p className="text-[10px] uppercase tracking-widest text-nx-muted">Control Center</p>
+          </div>
+        </Link>
+        <nav className="flex flex-row flex-wrap gap-1 lg:flex-col">
+          {ADMIN_NAV.map((item) => {
+            const isActive = item.href === "/admin" ? activePath === "/admin" : activePath.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                  isActive ? "bg-nx-accent/15 text-nx-accent" : "text-nx-muted hover:bg-white/5 hover:text-nx-text"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <div className="flex flex-1 flex-col">
+        <header className="flex min-h-[64px] items-center justify-between gap-4 border-b border-nx-line bg-black/10 px-5">
+          <p className="text-sm font-bold uppercase tracking-widest text-nx-muted">NEXATEC Control Center</p>
+          <div className="flex items-center gap-3 text-sm">
+            <div className="text-right">
+              <p className="font-semibold">{userEmail}</p>
+              <p className="text-xs text-nx-muted">{userRole}</p>
+            </div>
+            <Button variant="secondary" onClick={onLogout} className="min-h-[38px] px-4 text-xs">
+              Salir
+            </Button>
+          </div>
+        </header>
+        <main className="flex-1 p-5 lg:p-8">{children}</main>
+      </div>
+    </div>
+  );
+}
+
 export function NexatecMark() {
   return (
     <svg viewBox="0 0 240 240" className="h-6 w-6">

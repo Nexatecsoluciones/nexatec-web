@@ -1,76 +1,61 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
-import { Button, Card, TopNav } from "@/components/ui";
-import { ADMIN_ROLES, api, ApiError, type CurrentUser, type SystemOut } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { AdminLayout, Card, TopNav } from "@/components/ui";
+import { useAdminGuard } from "@/lib/useAdminGuard";
+import { api, ApiError, type DashboardStats } from "@/lib/api";
 
-export default function AdminPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [systems, setSystems] = useState<SystemOut[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [forbidden, setForbidden] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <Card className="p-5">
+      <p className="text-xs font-bold uppercase tracking-wide text-nx-muted">{label}</p>
+      <p className="mt-2 text-3xl font-extrabold">{value}</p>
+    </Card>
+  );
+}
 
-  async function loadSystems() {
-    // La lista completa (incluye inactivos) solo la devuelve la API si el
-    // rol es admin: el backend decide, esto es solo para pintar la UI.
-    const data = await api.listAllSystemsAdmin();
-    setSystems(data);
-  }
+function NotInitialized() {
+  return (
+    <div className="flex flex-1 flex-col">
+      <TopNav activePath="/admin" />
+      <main className="mx-auto w-full max-w-lg flex-1 px-5 py-24 text-center">
+        <Card className="p-10">
+          <h1 className="text-xl font-bold">Plataforma aún no inicializada</h1>
+          <p className="mt-3 text-sm text-nx-muted">
+            Todavía no existe un SUPER_ADMIN. La creación solo puede hacerse desde
+            la terminal del servidor (CLI), nunca desde esta pantalla.
+          </p>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
+export default function AdminDashboardPage() {
+  const { user, loading, forbidden, logout } = useAdminGuard();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [notInitialized, setNotInitialized] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user) return;
     api
-      .me()
-      .then(async (me) => {
-        setUser(me);
-        if (!ADMIN_ROLES.includes(me.role)) {
-          setForbidden(true);
-          return;
-        }
-        await loadSystems();
-      })
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 401) {
-          router.replace("/login");
-        } else if (err instanceof ApiError && err.status === 403) {
-          setForbidden(true);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [router]);
+      .getDashboard()
+      .then(setStats)
+      .catch((err) => setStatsError(err instanceof ApiError ? err.message : "Error al cargar el dashboard."));
+  }, [user]);
 
-  async function onCreateSystem(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setFormError(null);
-    setCreating(true);
-    const form = new FormData(e.currentTarget);
-    try {
-      await api.createSystemAdmin({
-        slug: String(form.get("slug")),
-        name: String(form.get("name")),
-        short_description: String(form.get("short_description")),
-        category: String(form.get("category")),
+  useEffect(() => {
+    if (forbidden) {
+      api.bootstrapStatus().then((s) => {
+        if (!s.initialized) setNotInitialized(true);
       });
-      e.currentTarget.reset();
-      await loadSystems();
-    } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Error al crear el sistema.");
-    } finally {
-      setCreating(false);
     }
-  }
+  }, [forbidden]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col">
-        <TopNav activePath="/admin" />
-        <main className="flex-1 px-5 py-16 text-center text-nx-muted">Cargando...</main>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex flex-1 items-center justify-center text-nx-muted">Cargando...</div>;
+
+  if (notInitialized) return <NotInitialized />;
 
   if (forbidden || !user) {
     return (
@@ -79,9 +64,6 @@ export default function AdminPage() {
         <main className="mx-auto w-full max-w-lg flex-1 px-5 py-16 text-center">
           <Card className="p-8">
             <h1 className="text-xl font-bold">No autorizado</h1>
-            <p className="mt-2 text-nx-muted">
-              Tu cuenta no tiene permisos para acceder al panel de administracion.
-            </p>
           </Card>
         </main>
       </div>
@@ -89,78 +71,67 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <TopNav activePath="/admin" />
-      <main className="mx-auto w-full max-w-[1180px] flex-1 px-5 py-16">
-        <h1 className="text-3xl font-extrabold">Panel de administracion</h1>
-        <p className="mt-1 text-nx-muted">{user.email} — {user.role}</p>
+    <AdminLayout activePath="/admin" userEmail={user.email} userRole={user.role} onLogout={logout}>
+      <h1 className="text-3xl font-extrabold">Dashboard</h1>
+      <p className="mt-1 text-nx-muted">Estado operativo real de NEXATEC.</p>
 
-        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-          <Card className="overflow-hidden">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-nx-line text-nx-muted">
-                <tr>
-                  <th className="px-5 py-4">Nombre</th>
-                  <th className="px-5 py-4">Categoria</th>
-                  <th className="px-5 py-4">Activo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {systems.map((s) => (
-                  <tr key={s.id} className="border-b border-nx-line/50">
-                    <td className="px-5 py-3 font-semibold">{s.name}</td>
-                    <td className="px-5 py-3 text-nx-muted">{s.category}</td>
-                    <td className="px-5 py-3">{s.is_active ? "Si" : "No"}</td>
-                  </tr>
+      {statsError && <Card className="mt-6 p-4 text-sm text-red-300">{statsError}</Card>}
+
+      {!stats ? (
+        <p className="mt-8 text-nx-muted">Cargando métricas...</p>
+      ) : (
+        <>
+          <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard label="Clientes activos" value={stats.active_tenants} />
+            <StatCard label="Usuarios" value={stats.total_users} />
+            <StatCard label="Demos activas" value={stats.active_demos} />
+            <StatCard label="Demos por vencer (7d)" value={stats.demos_expiring_soon} />
+            <StatCard label="Producciones activas" value={stats.active_productions} />
+            <StatCard label="Sistemas desplegados" value={stats.deployed_systems} />
+            <StatCard label="Storage usado" value={`${stats.storage_used_mb} MB`} />
+            <StatCard label="Pagos pendientes" value={stats.pending_payments} />
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <Card className="p-5">
+              <h2 className="mb-3 text-sm font-bold uppercase text-nx-muted">Últimos clientes</h2>
+              {stats.recent_tenants.length === 0 && <p className="text-sm text-nx-muted">Sin clientes todavía.</p>}
+              <ul className="flex flex-col gap-2 text-sm">
+                {stats.recent_tenants.map((t) => (
+                  <li key={t.id} className="flex justify-between">
+                    <span>{t.display_name}</span>
+                    <span className="text-nx-muted">{new Date(t.created_at).toLocaleDateString("es-PY")}</span>
+                  </li>
                 ))}
-                {systems.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="px-5 py-6 text-center text-nx-muted">
-                      Sin sistemas cargados todavia.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </Card>
-
-          <Card className="p-6">
-            <h2 className="text-lg font-bold">Agregar sistema</h2>
-            <form onSubmit={onCreateSystem} className="mt-4 flex flex-col gap-3">
-              <input
-                name="slug"
-                placeholder="slug (ej: taller)"
-                required
-                pattern="[a-z0-9-]+"
-                className="rounded-xl border border-nx-line bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-nx-accent"
-              />
-              <input
-                name="name"
-                placeholder="Nombre"
-                required
-                className="rounded-xl border border-nx-line bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-nx-accent"
-              />
-              <input
-                name="category"
-                placeholder="Categoria"
-                required
-                className="rounded-xl border border-nx-line bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-nx-accent"
-              />
-              <textarea
-                name="short_description"
-                placeholder="Descripcion corta"
-                required
-                rows={3}
-                className="rounded-xl border border-nx-line bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-nx-accent"
-              />
-              {formError && <p className="text-sm font-semibold text-red-300">{formError}</p>}
-              <Button type="submit" disabled={creating} className="w-full">
-                {creating ? "Creando..." : "Crear sistema"}
-              </Button>
-            </form>
-          </Card>
-        </div>
-      </main>
-    </div>
+              </ul>
+            </Card>
+            <Card className="p-5">
+              <h2 className="mb-3 text-sm font-bold uppercase text-nx-muted">Últimas demos</h2>
+              {stats.recent_demos.length === 0 && <p className="text-sm text-nx-muted">Sin demos todavía.</p>}
+              <ul className="flex flex-col gap-2 text-sm">
+                {stats.recent_demos.map((d) => (
+                  <li key={d.id} className="flex justify-between">
+                    <span>{d.status}</span>
+                    <span className="text-nx-muted">{new Date(d.created_at).toLocaleDateString("es-PY")}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            <Card className="p-5">
+              <h2 className="mb-3 text-sm font-bold uppercase text-nx-muted">Últimos pagos</h2>
+              {stats.recent_payments.length === 0 && <p className="text-sm text-nx-muted">Sin pagos todavía.</p>}
+              <ul className="flex flex-col gap-2 text-sm">
+                {stats.recent_payments.map((p) => (
+                  <li key={p.id} className="flex justify-between">
+                    <span>{p.currency} {Number(p.amount).toLocaleString("es-PY")}</span>
+                    <span className="text-nx-muted">{p.status}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+        </>
+      )}
+    </AdminLayout>
   );
 }

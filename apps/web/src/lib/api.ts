@@ -57,6 +57,23 @@ export interface CurrentUser {
   tenant_id: string | null;
 }
 
+export interface ConfigFieldDef {
+  key: string;
+  label: string;
+  type: "text" | "select" | "boolean" | "number" | "media" | "secret";
+  required?: boolean;
+  options?: string[];
+  default?: unknown;
+}
+
+export interface ModuleDef {
+  key: string;
+  label: string;
+  default_enabled?: boolean;
+}
+
+export type ImplementationStatus = "PENDING" | "PARTIAL" | "READY";
+
 export interface SystemOut {
   id: string;
   slug: string;
@@ -67,7 +84,17 @@ export interface SystemOut {
   demo_available: boolean;
   production_available: boolean;
   is_active: boolean;
+  is_public: boolean;
   sort_order: number;
+  implementation_status: ImplementationStatus;
+  icon: string | null;
+  image_url: string | null;
+  video_url: string | null;
+  default_demo_duration_days: number;
+  default_max_users: number | null;
+  default_storage_mb: number | null;
+  config_schema: ConfigFieldDef[] | null;
+  modules_schema: ModuleDef[] | null;
 }
 
 export type TenantStatus = "ACTIVE" | "SUSPENDED" | "ARCHIVED";
@@ -87,6 +114,14 @@ export interface TenantOut {
   legal_name: string;
   display_name: string;
   status: TenantStatus;
+  ruc: string | null;
+  primary_email: string | null;
+  phone: string | null;
+  country: string | null;
+  city: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
   created_at: string;
 }
 
@@ -129,18 +164,17 @@ export const api = {
   logout: () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
   listPublicSystems: () => request<SystemOut[]>("/api/systems"),
   listAllSystemsAdmin: () => request<SystemOut[]>("/api/admin/systems"),
-  createSystemAdmin: (data: {
-    slug: string;
-    name: string;
-    short_description: string;
-    category: string;
-    demo_available?: boolean;
-    production_available?: boolean;
-  }) =>
+  createSystemAdmin: (data: Partial<SystemOut> & { slug: string; name: string; short_description: string; category: string }) =>
     request<SystemOut>("/api/admin/systems", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  updateSystemAdmin: (systemId: string, data: Partial<SystemOut>) =>
+    request<SystemOut>(`/api/admin/systems/${systemId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  getSystemAdmin: (systemId: string) => request<SystemOut>(`/api/admin/systems/${systemId}`),
 
   // --- Portal (cliente autenticado) ---
   myUsers: () => request<MySystemOut[]>("/api/portal/my-systems"),
@@ -152,7 +186,18 @@ export const api = {
 
   // --- Admin: tenants ---
   listTenants: () => request<TenantOut[]>("/api/admin/tenants"),
-  createTenant: (data: { slug: string; legal_name: string; display_name: string }) =>
+  createTenant: (data: {
+    slug: string;
+    legal_name: string;
+    display_name: string;
+    ruc?: string;
+    primary_email?: string;
+    phone?: string;
+    city?: string;
+    contact_name?: string;
+    contact_email?: string;
+    contact_phone?: string;
+  }) =>
     request<TenantOut>("/api/admin/tenants", { method: "POST", body: JSON.stringify(data) }),
   listTenantUsers: (tenantId: string) =>
     request<TenantUserOut[]>(`/api/admin/tenants/${tenantId}/users`),
@@ -192,7 +237,117 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ note }),
     }),
+
+  // --- Bootstrap ---
+  bootstrapStatus: () => request<{ initialized: boolean }>("/api/system/bootstrap-status"),
+
+  // --- Dashboard ---
+  getDashboard: () => request<DashboardStats>("/api/admin/dashboard"),
+
+  // --- Health ---
+  getHealth: () => request<HealthReport>("/api/admin/health"),
+
+  // --- Jobs ---
+  listJobs: (statusFilter?: string) =>
+    request<JobOut[]>(`/api/admin/jobs${statusFilter ? `?status_filter=${statusFilter}` : ""}`),
+
+  // --- Usuarios ---
+  listUsers: (params?: { tenant_id?: string; role?: Role }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return request<UserOut[]>(`/api/admin/users${qs ? `?${qs}` : ""}`);
+  },
+  createUser: (data: { email: string; full_name: string; role: Role; tenant_id?: string | null }) =>
+    request<{ user: UserOut; invite_token: string }>("/api/admin/users", { method: "POST", body: JSON.stringify(data) }),
+  disableUser: (userId: string) => request<UserOut>(`/api/admin/users/${userId}/disable`, { method: "POST" }),
+  reactivateUser: (userId: string) => request<UserOut>(`/api/admin/users/${userId}/reactivate`, { method: "POST" }),
+
+  // --- Demo requests ---
+  listDemoRequests: (statusFilter?: string) =>
+    request<DemoRequestOut[]>(`/api/admin/demo-requests${statusFilter ? `?status_filter=${statusFilter}` : ""}`),
+  approveDemoRequest: (requestId: string, durationDays: number) =>
+    request<{ demo_request: DemoRequestOut; tenant_id: string; invite_token: string | null; job_status: string }>(
+      `/api/admin/demo-requests/${requestId}/approve`,
+      { method: "POST", body: JSON.stringify({ duration_days: durationDays }) },
+    ),
+  rejectDemoRequest: (requestId: string) =>
+    request<DemoRequestOut>(`/api/admin/demo-requests/${requestId}/reject`, { method: "POST", body: JSON.stringify({}) }),
+
+  // --- Plans ---
+  listPlans: () => request<PlanOut[]>("/api/plans"),
+  createPlan: (data: { slug: string; name: string; price_amount: string; price_currency?: string; billing_period: string }) =>
+    request<PlanOut>("/api/admin/plans", { method: "POST", body: JSON.stringify(data) }),
 };
+
+export interface DashboardStats {
+  active_tenants: number;
+  total_users: number;
+  active_demos: number;
+  demos_expiring_soon: number;
+  active_productions: number;
+  deployed_systems: number;
+  storage_used_mb: number;
+  pending_payments: number;
+  recent_tenants: { id: string; display_name: string; created_at: string }[];
+  recent_demos: { id: string; tenant_id: string; status: string; created_at: string }[];
+  recent_payments: { id: string; amount: string; currency: string; status: string; created_at: string }[];
+}
+
+export interface ServiceHealth {
+  name: string;
+  status: "HEALTHY" | "DEGRADED" | "DOWN" | "UNKNOWN";
+  detail: string | null;
+  checked_at: string;
+}
+
+export interface HealthReport {
+  services: ServiceHealth[];
+  registered_services: ServiceHealth[];
+}
+
+export interface JobOut {
+  id: string;
+  type: string;
+  tenant_id: string;
+  system_id: string;
+  environment: Environment;
+  status: "QUEUED" | "RUNNING" | "SUCCESS" | "FAILED";
+  steps: { name: string; status: string; detail: string | null; at: string }[];
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+}
+
+export interface UserOut {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: Role;
+  tenant_id: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface DemoRequestOut {
+  id: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string | null;
+  company_name: string | null;
+  system_id: string | null;
+  message: string | null;
+  status: "NEW" | "CONTACTED" | "APPROVED" | "REJECTED" | "PROVISIONED";
+  created_at: string;
+}
+
+export interface PlanOut {
+  id: string;
+  slug: string;
+  name: string;
+  price_amount: string;
+  price_currency: string;
+  billing_period: string;
+}
 
 export interface PaymentOrderOut {
   id: string;
