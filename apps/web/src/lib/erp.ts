@@ -160,12 +160,17 @@ async function call<T>(path: string, init?: RequestInit & { idempotent?: boolean
     let detail = res.statusText;
     try {
       const body = await res.json();
-      detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+      detail = typeof body.detail === "string" ? body.detail
+        : Array.isArray(body.detail)
+          ? body.detail.map((d: { loc?: (string | number)[]; msg?: string }) =>
+              `${(d.loc ?? []).filter((x) => x !== "body").join(" > ")}: ${d.msg ?? ""}`).join(" · ")
+          : JSON.stringify(body.detail);
     } catch {
       // sin JSON
     }
     throw new ApiError(res.status, detail);
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -196,6 +201,52 @@ export interface Pipeline {
   overdue_activities: number;
 }
 
+// --- RR.HH. ---
+export interface HrSettings {
+  pay_period: "BIWEEKLY" | "MONTHLY"; workday_hours: string; rounding_minutes: number; overtime_multiplier: string;
+  attendance_bonus_enabled: boolean; deduct_ips: boolean; ips_employee_pct: string; ips_employer_pct: string;
+}
+export interface HrCategory { id: string; code: string; default_trade: string | null; hourly_rate: Money | null; manual_rate: boolean }
+export interface HrDaySchedule { weekday: number; start_time: string; end_time: string }
+export interface HrSite {
+  id: string; code: string; name: string; client_name: string | null; location: string | null; start_time: string;
+  end_time: string; workdays: number[]; tolerance_minutes: number; latitude: string | null; longitude: string | null;
+  geofence_radius_m: number; day_schedules: HrDaySchedule[]; is_active: boolean;
+}
+export interface HrEmployee {
+  id: string; national_id: string; last_names: string; first_names: string; full_name: string; trade: string | null;
+  category_id: string | null; phone: string | null; email: string | null; pay_method: "CASH" | "TRANSFER";
+  bank_account: string | null; hourly_rate: Money | null; bonus_per_hour: Money | null; ips_entry: string | null;
+  ips_exit: string | null; ips_notes: string | null; address: string | null; neighborhood: string | null; city: string | null;
+  birth_date: string | null; family_notes: string | null; training: string | null; skills: string | null;
+  references_notes: string | null; custom_start: string | null; custom_end: string | null; tracks_attendance: boolean;
+  is_active: boolean; current_site_id: string | null;
+}
+export interface HrAttendance {
+  id: string; employee_id: string; site_id: string; work_date: string; time_in: string | null; time_out: string | null;
+  regular_hours: string; overtime_hours: string; overtime_status: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  paid_hours: string; manual_override: boolean; source: string; notes: string | null; employee_name: string | null;
+}
+export interface HrAdvance {
+  id: string; number: string; employee_id: string; employee_name: string | null; site_id: string | null; advance_date: string;
+  amount: Money; pay_method: string; notes: string | null; voided: boolean; void_reason: string | null;
+}
+export interface HrAbsence { id: string; employee_id: string; start_date: string; end_date: string; kind: string; notes: string | null }
+export interface HrPayrollLine {
+  employee_id: string; employee_name: string; national_id: string; pay_method: string; bank_account: string | null;
+  hourly_rate: Money; regular_hours: string; overtime_hours: string; days_worked: number; unexcused_absences: number;
+  base_amount: Money; overtime_amount: Money; bonus_amount: Money; adjustment: Money; gross: Money; ips_employee: Money;
+  ips_employer: Money; advances: Money; net: Money; bonus_forced: boolean; adjustment_note: string | null;
+}
+export interface HrPayroll {
+  id: string; number: string; period_start: string; period_end: string; site_id: string | null; status: "DRAFT" | "CLOSED";
+  total_hours: string; total_gross: Money; total_ips_employee: Money; total_ips_employer: Money; total_advances: Money;
+  total_net: Money; closed_at: string | null; lines: HrPayrollLine[];
+}
+export interface HrDevice { id: string; site_id: string; name: string; is_active: boolean; bound: boolean; last_used_at: string | null; token: string | null }
+export const WEEKDAYS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
+export const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : "-");
+
 export function erp(accessId: string) {
   const base = `/api/erp/${accessId}`;
   const qs = (params?: Record<string, string | number | boolean | undefined | null>) => {
@@ -210,6 +261,7 @@ export function erp(accessId: string) {
       call<T>(`${base}${path}`, { method: "POST", body: JSON.stringify(body ?? {}), idempotent }),
     put: <T>(path: string, body: unknown) => call<T>(`${base}${path}`, { method: "PUT", body: JSON.stringify(body) }),
     patch: <T>(path: string, body: unknown) => call<T>(`${base}${path}`, { method: "PATCH", body: JSON.stringify(body) }),
+    del: <T>(path: string) => call<T>(`${base}${path}`, { method: "DELETE" }),
   };
 }
 
@@ -244,6 +296,8 @@ export const STATUS_LABEL: Record<string, string> = {
   UNVERIFIED: "Sin verificar", FORMAT_OK: "Formato valido", VERIFIED_PROVIDER: "Verificado", FICTITIOUS: "Ficticio",
   NEW: "Nuevo", QUALIFIED: "Calificado", PROPOSAL: "Propuesta", NEGOTIATION: "Negociacion", WON: "Ganada", LOST: "Perdida",
   OPEN: "Abierto", CONVERTED: "Convertido", DISCARDED: "Descartado",
+  BIWEEKLY: "Quincenal", MONTHLY: "Mensual", PENDING: "Pendiente", APPROVED: "Aprobada", REJECTED: "Rechazada",
+  VACATION: "Vacaciones", PERMISSION: "Permiso", MEDICAL: "Reposo medico", MANUAL: "Manual", DEVICE: "Celular", IMPORT: "Importada",
   CALL: "Llamada", MEETING: "Reunion", EMAIL: "Email", WHATSAPP: "WhatsApp", TASK: "Tarea", NOTE: "Nota",
 };
 

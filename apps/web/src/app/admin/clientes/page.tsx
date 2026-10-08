@@ -17,6 +17,8 @@ const MEMBER_ROLES: [TenantMemberRole, string][] = [
   ["PURCHASING", "Compras"],
   ["WAREHOUSE", "Deposito"],
   ["AUDITOR", "Auditor"],
+  ["HR", "RR.HH."],
+  ["SITE_SUPERVISOR", "Supervisor de obra"],
 ];
 
 export default function AdminClientesPage() {

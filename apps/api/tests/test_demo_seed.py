@@ -90,6 +90,12 @@ def test_demo_has_consistent_operations(dbs):
         assert q("SELECT count(*) FROM crm_opportunities WHERE stage IN ('WON','LOST')") == 2
         assert q("SELECT count(*) FROM crm_opportunities WHERE stage NOT IN ('WON','LOST')") == 4
         assert q("SELECT count(*) FROM crm_activities WHERE done_at IS NULL") == 4
+        assert q("SELECT count(*) FROM hr_employees WHERE national_id LIKE '9991%'") == 8
+        assert q("SELECT count(*) FROM hr_employees WHERE national_id NOT LIKE '999%'") == 0
+        assert q("SELECT count(*) FROM hr_payrolls WHERE status = 'CLOSED'") == 1
+        assert q("SELECT count(*) FROM hr_payroll_lines l JOIN hr_payrolls p ON p.id = l.payroll_id WHERE p.status = 'CLOSED'") == 8
+        assert q("SELECT count(*) FROM hr_payroll_lines WHERE net <> gross - ips_employee - advances") == 0
+        assert q("SELECT count(*) FROM hr_attendance") > 40
         assert q("SELECT count(*) FROM sales_invoices WHERE fiscal_status <> 'INTERNAL_SIMULATION'") == 0
         assert q("SELECT count(*) FROM sales_orders WHERE status='CONFIRMED'") == 1
         assert q("SELECT count(*) FROM sales_orders WHERE status='DRAFT'") == 1

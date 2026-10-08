@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
   if (!isProduction()) return { rules: { userAgent: "*", disallow: "/" } };
   return {
     rules: { userAgent: "*", allow: ["/", "/demo", "/privacidad", "/terminos", "/cookies"],
-             disallow: ["/admin", "/portal", "/erp", "/imprimir", "/api", "/cuenta", "/login", "/restablecer", "/recuperar"] },
+             disallow: ["/admin", "/portal", "/erp", "/imprimir", "/marcar", "/api", "/cuenta", "/login", "/restablecer", "/recuperar"] },
     sitemap: `${publicUrl()}/sitemap.xml`,
   };
 }

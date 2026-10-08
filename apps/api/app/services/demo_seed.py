@@ -170,6 +170,7 @@ def _seed_operations(db: Session) -> None:
     sell("mix-1", [("ALM-AZUCAR-1KG", 50), ("ALM-ACEITE-900", 30)], credit_c, "confirmed")
     sell("cli-2", [("LIM-JABON-POLVO-1KG", 10), ("BEB-JUGO-1L", 12)], cash_c, "draft")
     _seed_crm(db, party)
+    _seed_hr(db)
 
 
 def _seed_crm(db: Session, party: dict) -> None:
@@ -269,3 +270,101 @@ def seed_demo_company(engine: Engine) -> bool:
         db.flush()
         _seed_operations(db)
     return True
+
+
+def _seed_hr(db: Session) -> None:
+    """RR.HH. de ejemplo: personas FICTICIAS (C.I. serie 9991xxx), dos obras,
+    la quincena anterior liquidada y cerrada y la actual en curso, con
+    tardanzas, extras pendientes, una falta, una ausencia justificada y
+    adelantos. Todo con los servicios reales."""
+    from datetime import time, timedelta
+
+    from app.services import hr
+    from app.services.receivables import local_today
+    from app.tenant_models.hr import (
+        AbsenceKind, AttendanceSource, HrCategory, HrSite, HrSiteDaySchedule, PayMethod,
+    )
+
+    cfg = hr.settings(db)
+    cfg.attendance_bonus_enabled = True
+    cats = {
+        "OFICIAL": HrCategory(id=_id("hrcat-of"), code="OFICIAL", default_trade="Albañil", hourly_rate=Decimal(14000)),
+        "AYUDANTE": HrCategory(id=_id("hrcat-ay"), code="AYUDANTE", default_trade="Ayudante", hourly_rate=Decimal(11000)),
+        "CAPATAZ": HrCategory(id=_id("hrcat-ca"), code="CAPATAZ", default_trade="Capataz", hourly_rate=Decimal(19000)),
+    }
+    db.add_all(cats.values())
+    s1 = HrSite(id=_id("hrsite-1"), code="OB-01", name="Edificio Ejemplo Centro (demo)", client_name="Cliente Ficticio S.A.",
+                location="Asuncion (ficticia)", start_time=time(7, 0), end_time=time(15, 0), workdays=[0, 1, 2, 3, 4],
+                tolerance_minutes=10)
+    s1.day_schedules.append(HrSiteDaySchedule(id=_id("hrsite-1-sat"), weekday=5, start_time=time(7, 0), end_time=time(12, 0)))
+    s2 = HrSite(id=_id("hrsite-2"), code="OB-02", name="Deposito Ejemplo Ruta (demo)", client_name="Otro Cliente Ficticio",
+                location="Luque (ficticia)", start_time=time(7, 30), end_time=time(16, 30), workdays=[0, 1, 2, 3, 4],
+                tolerance_minutes=10)
+    db.add_all([s1, s2])
+    db.flush()
+
+    today = local_today(db)
+    cur_start, _ = hr.period_for(today, cfg)
+    prev_start, prev_end = hr.period_for(cur_start - timedelta(days=1), cfg)
+    hired = prev_start - timedelta(days=30)
+    people = [
+        ("9991001", "Gomez Ejemplo", "Juan Carlos", "CAPATAZ", s1, PayMethod.TRANSFER),
+        ("9991002", "Benitez Ficticio", "Pedro", "OFICIAL", s1, PayMethod.CASH),
+        ("9991003", "Ortiz Demo", "Ramon", "OFICIAL", s1, PayMethod.CASH),
+        ("9991004", "Ayala Prueba", "Luis", "AYUDANTE", s1, PayMethod.CASH),
+        ("9991005", "Vera Simulado", "Marcos", "AYUDANTE", s1, PayMethod.TRANSFER),
+        ("9991006", "Duarte Ejemplo", "Ana", "OFICIAL", s2, PayMethod.TRANSFER),
+        ("9991007", "Rojas Ficticio", "Hugo", "AYUDANTE", s2, PayMethod.CASH),
+        ("9991008", "Cabrera Demo", "Nelson", "OFICIAL", s2, PayMethod.CASH),
+    ]
+    emps = []
+    for i, (ci, ln, fn, cat, site, pm) in enumerate(people):
+        e = hr.create_employee(db, {
+            "national_id": ci, "last_names": ln, "first_names": fn, "category_id": cats[cat].id,
+            "phone": "(000) 000-000", "pay_method": pm, "bank_account": f"000-{ci}" if pm == PayMethod.TRANSFER else None,
+            "bonus_per_hour": Decimal(500), "ips_entry": hired if i != 4 else None,  # uno sin IPS (jornalero)
+        }, site.id, hired, None)
+        emps.append((e, site))
+
+    def work(d, e, site, tin=time(7, 0), tout=None):
+        exc = hr.day_exception(site, d)
+        end = exc.end_time if exc else site.end_time
+        start = exc.start_time if exc else site.start_time
+        hr.record_attendance(db, employee_id=e.id, site_id=site.id, work_date=d, time_in=tin if tin != time(7, 0) else start,
+                             time_out=tout or end, source=AttendanceSource.MANUAL, user_id=None)
+
+    d = prev_start
+    while d < today:
+        for idx, (e, site) in enumerate(emps):
+            if not hr.is_workday(site, d):
+                continue
+            # Casos de ejemplo: una falta sin justificar (periodo actual), una
+            # tardanza, extras y una ausencia justificada.
+            if idx == 3 and d == cur_start + timedelta(days=1) and d < today:
+                continue
+            if idx == 7 and prev_start + timedelta(days=2) <= d <= prev_start + timedelta(days=3):
+                continue
+            tin = time(7, 25) if (idx == 2 and d.day % 4 == 0) else time(7, 0)
+            tout = time(16, 0) if (idx == 0 and d.weekday() == 2) else None
+            work(d, e, site, tin, tout)
+        d += timedelta(days=1)
+    e7, _ = emps[7]
+    hr.create_absence(db, employee_id=e7.id, start=prev_start + timedelta(days=2), end=prev_start + timedelta(days=3),
+                      kind=AbsenceKind.MEDICAL, notes="Reposo (ejemplo)", user_id=None)
+    # Extras del periodo anterior: aprobadas, para poder cerrarlo.
+    from sqlalchemy import select as _select
+
+    from app.tenant_models.hr import HrAttendance, OvertimeStatus
+    for a in db.execute(_select(HrAttendance).where(HrAttendance.work_date <= prev_end,
+                                                    HrAttendance.overtime_status == OvertimeStatus.PENDING)).scalars():
+        hr.decide_overtime(db, a.id, True)
+    for i, amount in ((1, 150000), (3, 100000), (6, 200000)):
+        e, site = emps[i]
+        hr.create_advance(db, employee_id=e.id, site_id=site.id, advance_date=prev_start + timedelta(days=5),
+                          amount=Decimal(amount), pay_method=PayMethod.CASH, notes="Adelanto (ejemplo)", user_id=None)
+    if cur_start < today:
+        e, site = emps[2]
+        hr.create_advance(db, employee_id=e.id, site_id=site.id, advance_date=cur_start, amount=Decimal(120000),
+                          pay_method=PayMethod.CASH, notes="Adelanto (ejemplo)", user_id=None)
+    payroll = hr.create_payroll(db, prev_start, prev_end, None, None)
+    hr.close_payroll(db, payroll.id, None)

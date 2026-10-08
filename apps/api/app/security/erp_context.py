@@ -59,26 +59,10 @@ def _not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado.")
 
 
-def get_erp_context(
-    system_access_id: uuid.UUID,
-    control_db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
-) -> Generator[ErpContext, None, None]:
-    access = control_db.get(SystemAccess, system_access_id)
-    if access is None:
-        raise _not_found()
-
-    membership = control_db.execute(
-        select(TenantUser).where(
-            TenantUser.tenant_id == access.tenant_id,
-            TenantUser.user_id == user.id,
-            TenantUser.status == TenantMemberStatus.ACTIVE,
-        )
-    ).scalar_one_or_none()
-    if membership is None:
-        # 404, no 403: no confirmar a un no-miembro que el recurso existe.
-        raise _not_found()
-
+def open_tenant_session(control_db: Session, access: SystemAccess) -> Session:
+    """Valida que la empresa y el acceso esten activos y vigentes y abre una
+    sesion en SU base. Lo usan el ERP (con usuario) y la marcacion publica de
+    asistencia (sin usuario, autenticada por token de dispositivo)."""
     tenant = control_db.get(Tenant, access.tenant_id)
     if tenant is None or tenant.status != TenantStatus.ACTIVE or tenant.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="La empresa no esta activa.")
@@ -103,7 +87,30 @@ def get_erp_context(
     except TenantDatabaseUnavailable:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Entorno no disponible.")
 
-    session = Session(bind=engine, autoflush=False)
+    return Session(bind=engine, autoflush=False)
+
+
+def get_erp_context(
+    system_access_id: uuid.UUID,
+    control_db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> Generator[ErpContext, None, None]:
+    access = control_db.get(SystemAccess, system_access_id)
+    if access is None:
+        raise _not_found()
+
+    membership = control_db.execute(
+        select(TenantUser).where(
+            TenantUser.tenant_id == access.tenant_id,
+            TenantUser.user_id == user.id,
+            TenantUser.status == TenantMemberStatus.ACTIVE,
+        )
+    ).scalar_one_or_none()
+    if membership is None:
+        # 404, no 403: no confirmar a un no-miembro que el recurso existe.
+        raise _not_found()
+
+    session = open_tenant_session(control_db, access)
     try:
         yield ErpContext(
             db=session, control_db=control_db, user=user, tenant_id=access.tenant_id,

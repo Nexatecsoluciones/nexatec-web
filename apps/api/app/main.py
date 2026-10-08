@@ -27,6 +27,7 @@ from app.routers import (
     payments,
     portal,
     public_hostname,
+    public_hr,
     site_content,
     service_registry,
     system_access,
@@ -104,6 +105,7 @@ app.include_router(system_access.router)
 app.include_router(demos.router)
 app.include_router(portal.router)
 app.include_router(public_hostname.router)
+app.include_router(public_hr.router)
 app.include_router(site_content.public_router)
 app.include_router(site_content.admin_router)
 app.include_router(erp_masters.router)

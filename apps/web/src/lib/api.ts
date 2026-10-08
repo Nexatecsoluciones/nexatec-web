@@ -117,7 +117,9 @@ export type TenantMemberRole =
   | "SALES"
   | "PURCHASING"
   | "WAREHOUSE"
-  | "AUDITOR";
+  | "AUDITOR"
+  | "HR"
+  | "SITE_SUPERVISOR";
 export type Environment = "DEMO" | "PRODUCTION";
 export type ProvisioningStatus =
   | "REQUESTED"

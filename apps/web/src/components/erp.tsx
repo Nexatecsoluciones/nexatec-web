@@ -19,7 +19,7 @@ export function useErp(): ErpValue {
 
 // `perm`: permiso de lectura que necesita la pantalla (el menu solo muestra
 // lo que el rol puede ver; el servidor igual lo valida en cada endpoint).
-const NAV = [
+export const NAV = [
   { href: "", label: "Tablero", perm: "dashboard:read" },
   { href: "/crm", label: "CRM", perm: "crm:read" },
   { href: "/ventas", label: "Ventas", perm: "sales:read" },
@@ -30,6 +30,7 @@ const NAV = [
   { href: "/productos", label: "Productos", perm: "products:read" },
   { href: "/terceros", label: "Clientes y proveedores", perm: "parties:read" },
   { href: "/contabilidad", label: "Contabilidad", perm: "accounting:read" },
+  { href: "/rrhh", label: "RR.HH.", perm: "hr:read" },
 ];
 
 function daysLeft(iso: string | null): number | null {

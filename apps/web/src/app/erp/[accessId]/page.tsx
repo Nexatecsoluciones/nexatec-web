@@ -1,10 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { Field, Input, Notice, PageTitle, Panel, Stat, Table, useErp, useLoad } from "@/components/erp";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Field, Input, NAV, Notice, PageTitle, Panel, Stat, Table, useErp, useLoad } from "@/components/erp";
 import { day, money, quantity, type Dashboard } from "@/lib/erp";
 
 export default function TableroPage() {
+  const { can, base } = useErp();
+  const router = useRouter();
+  const allowed = can("dashboard:read");
+  // Roles sin tablero (Ventas, Deposito, RR.HH., Supervisor...) van directo a
+  // su primer modulo permitido en vez de ver un 403.
+  useEffect(() => {
+    if (!allowed) {
+      const first = NAV.find((n) => n.href && can(n.perm));
+      if (first) router.replace(`${base}${first.href}`);
+    }
+  }, [allowed, base, can, router]);
+  if (!allowed) return <p className="text-nx-muted">Abriendo tu modulo...</p>;
+  return <Tablero />;
+}
+
+function Tablero() {
   const { client } = useErp();
   const [range, setRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
   const { data, error } = useLoad(

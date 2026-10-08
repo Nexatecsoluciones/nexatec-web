@@ -581,3 +581,98 @@ def set_override(db: Session, *, employee_id, start: date, end: date, force_bonu
     ov.force_bonus, ov.adjustment, ov.reason = force_bonus, adjustment, reason
     db.flush()
     return ov
+
+
+# --- Marcacion desde el dispositivo de la obra -------------------------------------------
+
+
+class DeviceDenied(SalesError):
+    status_code = 403
+
+
+def _distance_m(lat1, lon1, lat2, lon2) -> float:
+    from math import asin, cos, radians, sin, sqrt
+    p1, p2 = radians(float(lat1)), radians(float(lat2))
+    dp, dl = p2 - p1, radians(float(lon2) - float(lon1))
+    a = sin(dp / 2) ** 2 + cos(p1) * cos(p2) * sin(dl / 2) ** 2
+    return 2 * 6371000 * asin(sqrt(a))
+
+
+def device_for(db: Session, raw_token: str, fingerprint: str) -> HrDevice:
+    """Dispositivo activo para ese token. El primer aparato que lo usa queda
+    atado (fingerprint propio guardado en su localStorage); otro aparato con
+    el mismo link es rechazado hasta que RR.HH. reinicie el vinculo."""
+    dev = db.execute(select(HrDevice).where(HrDevice.token_hash == hash_token(raw_token)).with_for_update()).scalar_one_or_none()
+    if dev is None or not dev.is_active:
+        raise DeviceDenied("Link de marcacion invalido o deshabilitado.")
+    if dev.bound_fingerprint is None:
+        dev.bound_fingerprint = fingerprint
+    elif dev.bound_fingerprint != fingerprint:
+        raise DeviceDenied("Este link ya esta vinculado a otro celular. Pedile a RR.HH. que lo reinicie.")
+    return dev
+
+
+def mark_by_device(db: Session, *, device: HrDevice, national_id: str, client_id: str,
+                   latitude: float | None, longitude: float | None, occurred_at: datetime | None) -> tuple[str, HrAttendance]:
+    """Marca entrada (primera vez del dia) o salida (segunda). Devuelve
+    ("IN"|"OUT"|"DUPLICATE", registro). Idempotente por client_id: reenviar
+    el mismo intento (sin señal) no duplica ni pisa."""
+    from zoneinfo import ZoneInfo
+
+    from app.tenant_models.core import Company
+
+    site = db.get(HrSite, device.site_id)
+    if site is None or not site.is_active:
+        raise DeviceDenied("La obra de este dispositivo esta inactiva.")
+    if site.latitude is not None:
+        if latitude is None or longitude is None:
+            raise SalesError("Activa la ubicacion del celular para marcar en esta obra.")
+        dist = _distance_m(site.latitude, site.longitude, latitude, longitude)
+        if dist > site.geofence_radius_m:
+            raise SalesError(f"Estas a {int(dist)} m de la obra (maximo {site.geofence_radius_m} m).")
+
+    # Respuesta generica: no revela si la C.I. existe en la empresa.
+    generic = SalesError("C.I. no habilitada para marcar en esta obra.")
+    try:
+        ci = normalize_ci(national_id)
+    except SalesError:
+        raise generic
+    emp = db.execute(select(HrEmployee).where(HrEmployee.national_id == ci)).scalar_one_or_none()
+    if emp is None or not emp.is_active:
+        raise generic
+    cur = current_assignment(db, emp.id)
+    if cur is None or cur.site_id != site.id:
+        raise generic
+
+    company = db.get(Company, 1)
+    tz = ZoneInfo(company.timezone if company else "America/Asuncion")
+    now = datetime.now(timezone.utc)
+    when = now
+    if occurred_at is not None:
+        oc = occurred_at if occurred_at.tzinfo else occurred_at.replace(tzinfo=timezone.utc)
+        # Marcacion guardada sin señal: se acepta su hora real si es de las
+        # ultimas 24 h y no del futuro (margen de 2 min por relojes).
+        if now - timedelta(hours=24) <= oc <= now + timedelta(minutes=2):
+            when = min(oc, now)
+    local = when.astimezone(tz)
+    work_date, t = local.date(), local.time().replace(second=0, microsecond=0)
+
+    a = db.execute(select(HrAttendance).where(
+        HrAttendance.employee_id == emp.id, HrAttendance.site_id == site.id, HrAttendance.work_date == work_date,
+    ).with_for_update()).scalar_one_or_none()
+    if a is not None and client_id in (a.in_client_id, a.out_client_id):
+        return "DUPLICATE", a
+    device.last_used_at = now
+    if a is None or a.time_in is None:
+        a = record_attendance(db, employee_id=emp.id, site_id=site.id, work_date=work_date, time_in=t, time_out=None,
+                              source=AttendanceSource.DEVICE, user_id=None, device_id=device.id)
+        a.in_client_id = client_id
+        return "IN", a
+    if a.time_out is not None:
+        raise InvalidTransition("Ya marcaste entrada y salida hoy.")
+    if (_dt(t) - _dt(a.time_in)).total_seconds() < 120:
+        raise InvalidTransition("Ya marcaste la entrada recien.")
+    a = record_attendance(db, employee_id=emp.id, site_id=site.id, work_date=work_date, time_in=a.time_in, time_out=t,
+                          source=AttendanceSource.DEVICE, user_id=None, device_id=device.id)
+    a.out_client_id = client_id
+    return "OUT", a

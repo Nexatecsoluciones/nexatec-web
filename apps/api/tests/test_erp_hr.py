@@ -267,3 +267,53 @@ def test_permissions_supervisor_sees_no_money(t):
     assert sales.get(f"{base}/employees").status_code == 403
     # El admin si ve montos.
     assert t["c"][R.CLIENT_ADMIN].get(f"{base}/employees/{emp['id']}").json()["hourly_rate"] == "10000.00"
+
+
+def test_device_marking(t):
+    c, base = t["c"][R.HR], t["base"]
+    access_id = base.split("/")[3]
+    site = c.post(f"{base}/sites", json=_site_body("OB8") | {"latitude": "-25.300000", "longitude": "-57.600000",
+                                                             "geofence_radius_m": 300}).json()
+    emp = _emp(c, base, site["id"], "9990008")
+    other = c.post(f"{base}/sites", json=_site_body("OB9")).json()
+    outsider = _emp(c, base, other["id"], "9990009")
+    dev = c.post(f"{base}/devices", json={"site_id": site["id"], "name": "Tablet porteria"}).json()
+    token = dev["token"]
+    assert token and c.get(f"{base}/devices").json()[0]["token"] is None  # el token se ve una sola vez
+
+    pub = TestClient(app)
+    url = f"/api/public/hr/{access_id}"
+    h = {"X-Device-Token": token, "X-Device-Fp": "aparato-uno-123"}
+    info = pub.post(f"{url}/device", headers=h).json()
+    assert info["site"] == "Obra OB8" and info["requires_location"] is True
+    # Otro aparato con el mismo link: rechazado.
+    assert pub.post(f"{url}/device", headers=h | {"X-Device-Fp": "aparato-dos-456"}).status_code == 403
+    assert pub.post(f"{url}/device", headers=h | {"X-Device-Token": "x" * 40}).status_code == 403
+
+    near = {"latitude": -25.3005, "longitude": -57.6005}
+    five_min_ago = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    body = {"national_id": "9990008", "client_id": "intento-0001", "occurred_at": five_min_ago}
+    assert pub.post(f"{url}/mark", headers=h, json=body).status_code == 422          # sin ubicacion
+    far = pub.post(f"{url}/mark", headers=h, json=body | {"latitude": -25.4, "longitude": -57.6})
+    assert far.status_code == 422 and "m de la obra" in far.json()["detail"]
+    # C.I. de otra obra o inexistente: misma respuesta generica.
+    r1 = pub.post(f"{url}/mark", headers=h, json=body | near | {"national_id": "9990009"})
+    r2 = pub.post(f"{url}/mark", headers=h, json=body | near | {"national_id": "1234567"})
+    assert r1.status_code == r2.status_code == 422 and r1.json() == r2.json()
+
+    first = pub.post(f"{url}/mark", headers=h, json=body | near)
+    assert first.status_code == 200 and first.json()["result"] == "IN"
+    again = pub.post(f"{url}/mark", headers=h, json=body | near)                     # reintento sin señal
+    assert again.json()["result"] == "DUPLICATE" and again.json()["time"] == first.json()["time"]
+    out = pub.post(f"{url}/mark", headers=h, json={"national_id": "9990008", "client_id": "intento-0002"} | near)
+    assert out.status_code == 200 and out.json()["result"] == "OUT"
+    assert pub.post(f"{url}/mark", headers=h, json={"national_id": "9990008", "client_id": "intento-0003"} | near).status_code == 409
+    today = out.json()["work_date"]
+    rec = c.get(f"{base}/attendance", params={"date_from": today, "date_to": today, "employee_id": emp["id"]}).json()[0]
+    assert rec["source"] == "DEVICE" and rec["time_in"] and rec["time_out"]
+    # Reiniciar el vinculo permite otro aparato; deshabilitar corta todo.
+    c.post(f"{base}/devices/{dev['id']}/reset")
+    assert pub.post(f"{url}/device", headers=h | {"X-Device-Fp": "aparato-dos-456"}).status_code == 200
+    c.post(f"{base}/devices/{dev['id']}/disable")
+    assert pub.post(f"{url}/device", headers=h | {"X-Device-Fp": "aparato-dos-456"}).status_code == 403
+    assert outsider["id"]

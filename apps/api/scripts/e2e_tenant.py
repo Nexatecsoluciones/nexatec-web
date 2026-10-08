@@ -32,6 +32,22 @@ from app.security.roles import Role  # noqa: E402
 from app.services.provisioning import force_drop_tenant_database_for_tests, provision_tenant_database  # noqa: E402
 
 
+def _session_cookie(db, user) -> dict:
+    """Sesion completa emitida directamente en el servidor (mismo formato que
+    el login): con Turnstile REAL en produccion el navegador automatizado no
+    puede pasar el desafio del login, y debilitar Turnstile para probar no es
+    opcion. Requiere acceso al servidor; el login con Turnstile se prueba a mano."""
+    from app.core.config import get_settings
+    from app.security.session_auth import STAGE_FULL, _hash_token, _serializer
+
+    raw = secrets.token_urlsafe(48)
+    sess = UserSession(user_id=user.id, token_hash=_hash_token(raw), ip_address=None, user_agent="e2e",
+                       expires_at=datetime.now(timezone.utc) + timedelta(hours=2), stage=STAGE_FULL)
+    db.add(sess)
+    db.commit()
+    return {"name": get_settings().session_cookie_name, "value": _serializer.dumps({"sid": str(sess.id), "tok": raw})}
+
+
 def create(path: str) -> None:
     db = SessionLocal()
     sfx = uuid.uuid4().hex[:8]
@@ -55,7 +71,7 @@ def create(path: str) -> None:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as fh:
         json.dump({"email": user.email, "password": password, "access_id": str(access.id),
-                   "tenant_id": str(tenant.id)}, fh)
+                   "tenant_id": str(tenant.id), "session_cookie": _session_cookie(db, user)}, fh)
     print(f"tenant e2e-{sfx} listo; credenciales en {path}")
 
 

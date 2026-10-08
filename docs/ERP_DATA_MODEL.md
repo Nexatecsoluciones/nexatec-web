@@ -312,6 +312,47 @@ la cuenta Mercaderías pueden diferir en unidades de guaraní.
 - La demo trae 3 prospectos, 6 oportunidades (4 abiertas, 1 ganada,
   1 perdida) y 4 actividades pendientes.
 
+## Revisión `afd02f3c9860` — RR.HH.
+
+Generalización del módulo que NEXATEC hizo para obras de construcción, sin
+datos de ningún cliente ni datos biométricos.
+
+- `hr_settings` (fila única): período quincenal/mensual, horas que vale un
+  día (8 por defecto), redondeo (15 min), recargo de extra (1,5), premio por
+  asistencia, IPS 9 % / 16,5 %.
+- `hr_sites` (obras) con horario de referencia, días laborables, tolerancia,
+  geocerca opcional y `hr_site_day_schedules` (ej. sábado 07–12: ese día vale
+  5 h). `hr_categories` con jornal por defecto.
+- `hr_employees` (ficha completa; C.I. única), `hr_assignments` con
+  historial (índice parcial: una sola asignación abierta), `hr_blocklist`
+  (C.I. bloqueada no se da de alta ni se reactiva; bloquear da de baja y
+  cierra IPS).
+- `hr_attendance`: un registro por empleado+obra+día. Horas normales = valor
+  del día − tardanza/salida anticipada fuera de tolerancia (bloques). Extra
+  solo por quedarse después de la salida, queda `PENDING` hasta aprobar o
+  rechazar. `manual_override` fija las horas pagas a mano (con motivo).
+  `hr_manual_overtime`: extras sin marcación.
+- `hr_advances` (`AD-`), `hr_absences` (justificadas: no cuentan como falta).
+- `hr_payrolls` (`PL-`) + `hr_payroll_lines` en cascada: base + extra×recargo
+  + premio + ajuste = bruto → IPS obrero (solo con fecha de entrada IPS) →
+  adelantos → neto (CHECKs). `hr_payroll_overrides`: premio forzado / ajuste
+  con motivo. No se cierra con extras pendientes ni antes de que termine el
+  período. **CLOSED es inmutable** (trigger) y bloquea cualquier cambio de
+  asistencia, adelantos o extras de ese período para esos empleados.
+- Marcación por celular de la obra (`/marcar/{acceso}/{token}`, API pública
+  `/api/public/hr/{acceso}/device|mark`): token hasheado, atado al primer
+  aparato, geocerca, límite de intentos, respuesta genérica para C.I.
+  desconocidas, idempotente por `client_id` (cola sin señal hasta 24 h).
+- Permisos: `hr:read`, `hr:write`, `hr:attendance`, `hr:payroll`,
+  `hr:amounts` (sin este no se ven jornales, cuentas, adelantos ni planillas).
+  Roles nuevos: **RR.HH.** (todo RR.HH.) y **Supervisor de obra** (ve personal
+  y carga asistencia, sin montos). Finanzas liquida planillas.
+- Salidas: recibos A4 (`/imprimir/{acceso}/recibos/{planilla}`), CSV de
+  planilla IPS y de pagos por transferencia.
+- Demo: 2 obras, 8 personas ficticias (C.I. 9991xxx), quincena anterior
+  cerrada y la actual en curso con tardanzas, extra pendiente, una falta,
+  una ausencia justificada y adelantos.
+
 ## Comprobantes imprimibles / PDF
 
 `/imprimir/{acceso}/factura/{id}` y `/imprimir/{acceso}/nota-credito/{id}`:
@@ -377,6 +418,8 @@ aparece una nueva sin permiso. La interfaz recibe la lista en
 | Finanzas | todo | terceros, facturas/cobros, facturas de proveedor/pagos, contabilidad, cierre de períodos |
 | Contador | todo | contabilidad, cierre de períodos |
 | Ventas | maestros, stock, ventas, cobranzas, CRM (no contabilidad, proveedores ni tablero) | terceros, pedidos, entregas, CRM |
+| RR.HH. | personal, obras, asistencia, adelantos, planillas | todo RR.HH. |
+| Supervisor de obra | personal y obras (sin montos) | asistencia, aprobar extras, ausencias |
 | Compras | maestros, stock, compras, cuentas por pagar | productos, terceros, órdenes de compra, recepciones |
 | Depósito | maestros, stock, pedidos y órdenes de compra | movimientos de stock, entregas, recepciones |
 | Consulta / Auditor | todo | nada |

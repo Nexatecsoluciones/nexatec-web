@@ -8,7 +8,7 @@ diga "Activo = Pasivo + Patrimonio" → revisa que en un celular (390 px) la
 página no desborde. Falla si hay errores de JavaScript en consola. Guarda
 capturas en `E2E_SHOTS` (por defecto `apps/web/e2e/shots/`, ignorado por git).
 
-Última corrida (2026-10-08): **17/17 OK (incluye CRM: ganar oportunidad y convertir prospecto), sin errores de consola**. Además `admin-first-login.e2e.mjs` (primer ingreso de superadmin con cambio de contraseña, MFA con QR y editor del sitio sin publicar): 6/6.
+Última corrida (2026-10-08): **19/19 OK (incluye CRM y RR.HH.: planilla cerrada con recibos y marcación desde un celular), sin errores de consola**. Además `admin-first-login.e2e.mjs` (primer ingreso de superadmin con cambio de contraseña, MFA con QR y editor del sitio sin publicar): 6/6.
 
 ## Cómo correrla
 
@@ -56,3 +56,13 @@ y después borrar el pedido:
 `sudo -u postgres psql -d nexatec_control -c "delete from demo_requests where contact_email like 'e2e-public-%@example.com'"`.
 Última corrida: 5/5. Detectó un error 500 real (comparación INET vs texto en
 el límite por IP) que los tests unitarios no cubrían; corregido y con test.
+
+## Producción con Turnstile real
+
+Desde que `nexatecpy.com` usa claves reales de Turnstile, el navegador
+automatizado no puede pasar el desafío del login (es lo esperado). Por eso
+`scripts/e2e_tenant.py create` emite además una sesión en el servidor
+(`session_cookie` en el JSON, vence en 2 h) y `erp.e2e.mjs` la usa si está.
+Requiere acceso al servidor, no abre nada nuevo. El login con Turnstile se
+prueba a mano. `admin-first-login.e2e.mjs` y el envío del formulario de demo
+de `public-site.e2e.mjs` necesitan un entorno con claves de prueba.

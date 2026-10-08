@@ -32,6 +32,16 @@ const erp = `${BASE}/erp/${cfg.access_id}`;
 const expectText = async (text, timeout = 15000) => page.getByText(text, { exact: false }).first().waitFor({ timeout });
 
 await step("login", async () => {
+  if (cfg.session_cookie) {
+    // Produccion con Turnstile real: el navegador automatizado no puede pasar
+    // el desafio. La sesion la emite scripts/e2e_tenant.py en el servidor.
+    const host = new URL(BASE).hostname;
+    await page.context().addCookies([{ name: cfg.session_cookie.name, value: cfg.session_cookie.value, domain: host,
+      path: "/", httpOnly: true, secure: BASE.startsWith("https"), sameSite: "Lax" }]);
+    await page.goto(`${BASE}/portal`);
+    await page.waitForURL(/\/portal/, { timeout: 20000 });
+    return;
+  }
   await page.goto(`${BASE}/login`);
   await page.locator('input[type="email"]').fill(cfg.email);
   await page.locator('input[type="password"]').fill(cfg.password);
@@ -155,6 +165,54 @@ await step("CRM: embudo, ganar oportunidad, prospecto a cliente", async () => {
   await page.screenshot({ path: `${SHOTS}04-crm.png`, fullPage: true });
   await page.goto(`${erp}/terceros`);
   await expectText("Empresa E2E Ficticia");
+});
+
+await step("RR.HH.: personal, asistencia y planilla cerrada con recibos", async () => {
+  await page.goto(`${erp}/rrhh`);
+  await expectText("Gomez Ejemplo, Juan Carlos");
+  await page.screenshot({ path: `${SHOTS}06-rrhh-personal.png`, fullPage: true });
+  await page.goto(`${erp}/rrhh/asistencia`);
+  await page.locator("select").first().selectOption({ label: "OB-01 - Edificio Ejemplo Centro (demo)" });
+  await expectText("Horas pagas del periodo");
+  await expectText("Benitez Ficticio, Pedro");
+  await page.screenshot({ path: `${SHOTS}07-rrhh-asistencia.png`, fullPage: true });
+  await page.goto(`${erp}/rrhh/planillas`);
+  await page.getByRole("button", { name: "PL-000001" }).click();
+  await expectText("Total a pagar");
+  await expectText("Cerrada");
+  const [recibos] = await Promise.all([
+    page.context().waitForEvent("page"),
+    page.getByRole("link", { name: "Recibos para imprimir" }).click(),
+  ]);
+  await recibos.getByText("RECIBO DE PAGO").first().waitFor({ timeout: 15000 });
+  await recibos.getByText("DEMO · DATOS FICTICIOS").first().waitFor({ timeout: 5000 });
+  const count = await recibos.getByText("RECIBO DE PAGO").count();
+  if (count !== 8) throw new Error(`se esperaban 8 recibos, hay ${count}`);
+  await recibos.screenshot({ path: `${SHOTS}08-rrhh-recibos.png` });
+  await recibos.close();
+});
+
+await step("RR.HH.: habilitar celular de obra y marcar con C.I.", async () => {
+  await page.goto(`${erp}/rrhh/obras`);
+  await expectText("Celulares para marcar asistencia");
+  const devForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Habilitar" }) });
+  await devForm.locator("select").selectOption({ label: "OB-01 - Edificio Ejemplo Centro (demo)" });
+  await devForm.getByLabel("Nombre del aparato").fill("Tablet E2E");
+  await page.getByRole("button", { name: "Habilitar" }).click();
+  await expectText("se muestra una sola vez");
+  const link = (await page.locator("p.font-mono").innerText()).trim();
+  // Contexto aparte, sin la sesion del admin: como el celular real de la obra.
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await phone.goto(link);
+  await phone.getByText("Edificio Ejemplo Centro (demo)").first().waitFor({ timeout: 15000 });
+  for (const d of "9991001") await phone.getByRole("button", { name: d, exact: true }).click();
+  await phone.getByRole("button", { name: "Marcar entrada / salida" }).click();
+  await phone.getByText(/(Entrada|Salida) registrada/).waitFor({ timeout: 15000 });
+  await phone.getByText("Gomez Ejemplo, Juan Carlos").waitFor({ timeout: 5000 });
+  const overflow = await phone.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  await phone.screenshot({ path: `${SHOTS}09-marcacion-celular.png`, fullPage: true });
+  if (overflow > 2) throw new Error(`la marcacion desborda ${overflow}px`);
+  await phone.close();
 });
 
 await step("movil (390px) sin scroll horizontal de pagina", async () => {
