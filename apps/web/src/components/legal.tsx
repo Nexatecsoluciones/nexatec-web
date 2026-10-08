@@ -11,9 +11,10 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
           Version {LEGAL.version}. Borrador sujeto a revision legal antes de su vigencia definitiva.
         </p>
         <p>
-          Responsable: {LEGAL.legalName || "NEXATEC Soluciones Tecnologicas"}{LEGAL.ruc && `, RUC ${LEGAL.ruc}`}
-          {LEGAL.address && `, ${LEGAL.address}`}. Contacto: <a className="text-nx-accent" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+          Responsable: <strong className="text-nx-text">{LEGAL.legalName}</strong>, nombre de fantasia {LEGAL.tradeName}, RUC {LEGAL.ruc}
+          {LEGAL.address && `, ${LEGAL.address}`}. Actividad: {LEGAL.activity.toLowerCase()}. Contacto: <a className="text-nx-accent" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
         </p>
+        <p>En estos textos, &quot;NEXATEC&quot; se refiere a {LEGAL.tradeName} ({LEGAL.legalName}, RUC {LEGAL.ruc}).</p>
         {children}
       </article>
     </PublicShell>

@@ -1,16 +1,18 @@
 // Datos del sitio publico. Valores comerciales tomados del sitio vigente de
-// NEXATEC (index.html del repo); nada inventado. Los datos legales de la
-// empresa (razon social, RUC, domicilio) NO se completan hasta tenerlos
-// verificados: los campos vacios no se muestran.
+// NEXATEC (index.html del repo); nada inventado. Datos legales provistos por
+// el titular el 2026-10-08 (RUC verificado con el DV modulo 11 de la SET).
+// El domicilio todavia no se informo: los campos vacios no se muestran.
 
 export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "595981813971";
 export const CONTACT_EMAIL = "nexasolucionestec@gmail.com";
 
 export const LEGAL = {
-  legalName: process.env.NEXT_PUBLIC_LEGAL_NAME ?? "",
-  ruc: process.env.NEXT_PUBLIC_LEGAL_RUC ?? "",
+  legalName: "Maria Nazareth Meyer",
+  tradeName: "Nexatec PY",
+  ruc: "5879897-8",
+  activity: "Servicios generales, servicios digitales informaticos y de desarrollo web y sistemas",
   address: process.env.NEXT_PUBLIC_LEGAL_ADDRESS ?? "",
-  version: "2026-10-08 (borrador)",
+  version: "2026-10-08",
 };
 
 export function whatsappUrl(message: string): string {

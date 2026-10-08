@@ -7,6 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.security.turnstile import turnstile_mode
 from app.core.db import engine, get_db
 from app.models.control_center import ServiceRegistry
 from app.models.control_center_enums import ServiceHealthStatus
@@ -69,6 +70,15 @@ async def _check_cloudflare_tunnel() -> ServiceHealth:
         return ServiceHealth(name="Cloudflare Tunnel", status="DOWN", detail=type(exc).__name__, checked_at=_now())
 
 
+def _check_turnstile() -> ServiceHealth:
+    mode = turnstile_mode()
+    if mode == "real":
+        return ServiceHealth(name="Anti-bots (Turnstile)", status="HEALTHY", checked_at=_now())
+    detail = ("Claves de PRUEBA de Cloudflare: formularios sin proteccion anti-bots" if mode == "test"
+              else "Sin claves: login y formularios publicos rechazan todo fuera de development")
+    return ServiceHealth(name="Anti-bots (Turnstile)", status="DEGRADED", detail=detail, checked_at=_now())
+
+
 @router.get("", response_model=HealthReport)
 async def get_health(db: Session = Depends(get_db), admin=Depends(require_admin_panel())):
     services = [
@@ -76,6 +86,7 @@ async def get_health(db: Session = Depends(get_db), admin=Depends(require_admin_
         await _check_postgres(),
         await _check_garage(),
         await _check_cloudflare_tunnel(),
+        _check_turnstile(),
     ]
 
     registered = db.execute(select(ServiceRegistry)).scalars().all()

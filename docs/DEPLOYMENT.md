@@ -109,3 +109,20 @@ sudo systemctl restart nexatec-web-staging.service
 ```
 
 Ver `docs/RUNBOOK.md` para operacion dia a dia (logs, health, rollback).
+
+## Producción (desde 2026-10-08)
+
+`https://nexatecpy.com` corre con `NEXATEC_ENV=production` (API y web):
+indexable (`robots.txt` permite solo las páginas públicas, `sitemap.xml`),
+`/docs` oculto, cookies Secure, HSTS. Los nombres de archivos y unidades
+siguen siendo `*-staging` por historia (`/etc/nexatec/api-staging.env`,
+`nexatec-api-staging.service`, `nexatec-web-staging.service`); renombrarlos
+es un cambio aparte con ventana de mantenimiento.
+
+Datos legales del titular (en `apps/web/src/lib/site.ts`): Maria Nazareth
+Meyer, nombre de fantasía Nexatec PY, RUC 5879897-8. Falta el domicilio.
+
+Anti-bots: mientras Turnstile use las claves de prueba de Cloudflare, el
+Control Center → Estado muestra "Anti-bots (Turnstile)" como DEGRADED.
+Cargar las reales con `bash infra/set-turnstile-keys.sh` (pide la secret sin
+mostrarla, la valida contra Cloudflare, recompila y reinicia).

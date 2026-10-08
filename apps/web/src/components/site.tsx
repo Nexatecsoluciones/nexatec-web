@@ -61,7 +61,7 @@ export function SiteFooter() {
         <div>
           <p className="font-extrabold text-nx-text">NEXATEC Soluciones Tecnologicas</p>
           <p className="mt-2">ERP · CRM · Business Intelligence · Automatizacion</p>
-          {LEGAL.legalName && <p className="mt-2">{LEGAL.legalName}{LEGAL.ruc && ` · RUC ${LEGAL.ruc}`}</p>}
+          <p className="mt-2">{LEGAL.tradeName} · {LEGAL.legalName} · RUC {LEGAL.ruc}</p>
           {LEGAL.address && <p>{LEGAL.address}</p>}
         </div>
         <div className="flex flex-col gap-2">
