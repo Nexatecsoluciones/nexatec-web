@@ -1,8 +1,29 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import QRCode from "qrcode";
 import { Button, Card } from "@/components/ui";
 import { api, ApiError, type CurrentUser } from "@/lib/api";
+
+/** QR generado en el navegador: el secreto TOTP nunca pasa por un servicio
+ *  externo de QR. Fondo blanco y margen para que las camaras lo lean bien
+ *  sobre el tema oscuro. */
+function OtpQr({ uri }: { uri: string }) {
+  const [svg, setSvg] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    QRCode.toString(uri, { type: "svg", errorCorrectionLevel: "M", margin: 2, color: { dark: "#000000", light: "#ffffff" } })
+      .then((out) => { if (alive) setSvg(out); })
+      .catch(() => { if (alive) setSvg(null); });
+    return () => { alive = false; };
+  }, [uri]);
+  if (!svg) return null;
+  return (
+    <div role="img" aria-label="Codigo QR para la app autenticadora"
+      className="mx-auto w-52 rounded-xl bg-white p-2 [&>svg]:h-auto [&>svg]:w-full"
+      dangerouslySetInnerHTML={{ __html: svg }} />
+  );
+}
 
 const inputCls = "rounded-xl border border-nx-line bg-white/5 px-4 py-3 text-nx-text outline-none focus:border-nx-accent";
 
@@ -92,9 +113,11 @@ export function MfaPanel({ user, onEnabled }: { user: CurrentUser; onEnabled?: (
       ) : (
         <form onSubmit={confirm} className="flex flex-col gap-3">
           <ol className="list-decimal pl-5 text-sm text-nx-muted">
-            <li>En la app, agregar cuenta con <strong>clave de configuracion</strong> (o abrir el enlace desde el celular).</li>
+            <li>En la app, tocar <strong>+</strong> y <strong>escanear el codigo QR</strong>.</li>
             <li>Ingresar abajo el codigo de 6 digitos que muestra la app.</li>
           </ol>
+          <OtpQr uri={setup.otpauth_uri} />
+          <p className="text-center text-xs text-nx-muted">Si no podes escanear, carga esta clave de configuracion a mano:</p>
           <p className="rounded-xl border border-nx-line bg-black/30 p-3 text-center font-mono text-lg tracking-widest">
             {setup.secret.match(/.{1,4}/g)?.join(" ")}
           </p>

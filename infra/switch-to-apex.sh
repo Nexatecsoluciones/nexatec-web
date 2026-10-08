@@ -15,9 +15,18 @@ from app.services.cloudflare_dns import ensure_public_hostname_route as e
 for h in ('nexatecpy.com', 'www.nexatecpy.com'):
     e(h); print('   ok', h)" )
 
+# El resolver local de OCI cachea el NXDOMAIN de antes (hasta 30 min): se
+# resuelve contra 1.1.1.1 y se fuerza la IP con --resolve.
+cf_curl() {
+  local url=$1 host ip
+  host=$(echo "$url" | sed -E 's#https://([^/]+).*#\1#')
+  ip=$(dig +short "$host" @1.1.1.1 | grep -E '^[0-9.]+$' | head -1)
+  curl -s -o /dev/null -w '%{http_code} %{redirect_url}' ${ip:+--resolve "$host:443:$ip"} "$url" || true
+}
+
 echo "2) esperando que https://nexatecpy.com responda"
 for i in $(seq 1 30); do
-  code=$(curl -s -o /dev/null -w '%{http_code}' https://nexatecpy.com/ || true)
+  code=$(cf_curl https://nexatecpy.com/ | cut -d' ' -f1)
   [ "$code" = "200" ] && break
   sleep 5
 done
@@ -40,7 +49,7 @@ sleep 5
 
 echo "5) verificacion"
 for u in https://nexatecpy.com/ https://nexatecpy.com/api/health https://www.nexatecpy.com/ https://staging.nexatecpy.com/login; do
-  printf '   %-40s %s\n' "$u" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$u")"
+  printf '   %-40s %s\n' "$u" "$(cf_curl "$u")"
 done
 systemctl is-active hesed-ot.service >/dev/null && echo "   hesed-ot: activo (intacto)"
 echo "Listo: https://nexatecpy.com"
