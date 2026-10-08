@@ -204,6 +204,36 @@ class DemoInstance(Base):
     )
 
 
+class TenantHostname(Base):
+    """Hostname publico (subdominio de nexatecpy.com) que resuelve a un
+    tenant+sistema+entorno exacto. Es el UNICO mecanismo de resolucion de
+    tenant por Host header -- ver app/services/hostname_resolution.py.
+    Nunca se infiere el tenant de un parametro de query/body controlable
+    por el navegador. `hostname` ya viene normalizado (lowercase, sin
+    puerto) por el servicio antes de insertarse aca."""
+
+    __tablename__ = "tenant_hostnames"
+    __table_args__ = (
+        UniqueConstraint("hostname", name="uq_tenant_hostnames_hostname"),
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    system_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("systems.id"), nullable=False, index=True
+    )
+    environment: Mapped[Environment] = mapped_column(
+        Enum(Environment, name="tenant_hostname_environment"), nullable=False
+    )
+    hostname: Mapped[str] = mapped_column(String(253), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class ProductionInstance(Base):
     __tablename__ = "production_instances"
 
