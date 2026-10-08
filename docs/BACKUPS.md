@@ -68,3 +68,33 @@ sudo install -m 755 -o root -g root infra/backup/nexatec-*.sh /usr/local/sbin/
   descifrar.
 - RPO actual: hasta 24 h (backup diario). RTO: minutos para una base chica;
   no medido con volumen real.
+
+## Copia offsite en OneDrive
+
+`nexatec-backup.sh` sube cada carpeta diaria (solo los `.dump.enc`, ya cifrados,
+y `SHA256SUMS`) a `onedrive:NEXATEC-backups/<fecha>/` si existe
+`/etc/nexatec/rclone.conf` con un remoto llamado `onedrive`. Después de subir
+verifica con `rclone check` y aplica retención remota
+(`NEXATEC_BACKUP_REMOTE_KEEP_DAYS`, 60 días por defecto). **La clave
+`/etc/nexatec/backup.key` nunca se sube**: guardala aparte (gestor de
+contraseñas), si no, los archivos de OneDrive no sirven para restaurar.
+
+rclone v1.75.1 está instalado en `/usr/local/bin/rclone` (binario oficial,
+SHA-256 verificado).
+
+Configuración (una sola vez; requiere iniciar sesión en Microsoft desde un PC
+con navegador):
+
+1. En el PC: instalar rclone (`winget install Rclone.Rclone` en Windows) y
+   correr `rclone authorize "onedrive"`. Iniciar sesión; la consola imprime un
+   JSON `{"access_token":...}`.
+2. En el servidor:
+   ```bash
+   sudo rclone config create onedrive onedrive token 'PEGAR_EL_JSON_AQUI' --config /etc/nexatec/rclone.conf
+   sudo chmod 600 /etc/nexatec/rclone.conf
+   sudo rclone --config /etc/nexatec/rclone.conf lsd onedrive:
+   sudo systemctl start nexatec-backup.service && sudo journalctl -u nexatec-backup.service -n 5 --no-pager -o cat
+   ```
+
+Restaurar desde OneDrive: `rclone copy onedrive:NEXATEC-backups/<fecha> /tmp/r`
+y seguir el procedimiento de restauración de arriba.

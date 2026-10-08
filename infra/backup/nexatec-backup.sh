@@ -6,6 +6,10 @@
 # Formato: pg_dump -Fc (comprimido) cifrado con AES-256 (openssl, clave en
 # /etc/nexatec/backup.key, solo root). Destino /var/backups/nexatec/<fecha>/,
 # solo root. Retencion: NEXATEC_BACKUP_KEEP_DAYS (default 14).
+# Copia offsite: si existe /etc/nexatec/rclone.conf con un remoto "onedrive",
+# se sube la carpeta (solo archivos YA cifrados; la clave nunca sale del
+# servidor) a onedrive:NEXATEC-backups/<fecha>/. Retencion remota:
+# NEXATEC_BACKUP_REMOTE_KEEP_DAYS (default 60).
 # Ver docs/BACKUPS.md.
 set -euo pipefail
 umask 077
@@ -13,6 +17,9 @@ umask 077
 KEY=/etc/nexatec/backup.key
 DEST_ROOT=${NEXATEC_BACKUP_DIR:-/var/backups/nexatec}
 KEEP_DAYS=${NEXATEC_BACKUP_KEEP_DAYS:-14}
+REMOTE_KEEP_DAYS=${NEXATEC_BACKUP_REMOTE_KEEP_DAYS:-60}
+RCLONE_CONF=/etc/nexatec/rclone.conf
+REMOTE_DIR=onedrive:NEXATEC-backups
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 DEST="$DEST_ROOT/$STAMP"
 
@@ -34,3 +41,16 @@ echo "$count bases respaldadas en $DEST ($(du -sh "$DEST" | cut -f1))"
 
 # Retencion: borra solo carpetas con formato de fecha de este script.
 find "$DEST_ROOT" -mindepth 1 -maxdepth 1 -type d -name '20*T*Z' -mtime +"$KEEP_DAYS" -print -exec rm -rf {} +
+
+# Offsite. Un fallo aca deja el servicio en "failed" (se ve en systemctl /
+# journal) pero el backup local ya quedo hecho.
+if [ -r "$RCLONE_CONF" ] && rclone --config "$RCLONE_CONF" listremotes | grep -qx 'onedrive:'; then
+  rclone --config "$RCLONE_CONF" copy "$DEST" "$REMOTE_DIR/$STAMP" --checksum --retries 5 --low-level-retries 10
+  rclone --config "$RCLONE_CONF" check "$DEST" "$REMOTE_DIR/$STAMP" --one-way --size-only
+  echo "subido a $REMOTE_DIR/$STAMP"
+  # Retencion remota: solo dentro de NEXATEC-backups.
+  rclone --config "$RCLONE_CONF" delete "$REMOTE_DIR" --min-age "${REMOTE_KEEP_DAYS}d" --include '20*T*Z/**'
+  rclone --config "$RCLONE_CONF" rmdirs "$REMOTE_DIR" --leave-root
+else
+  echo "AVISO: OneDrive no configurado ($RCLONE_CONF); backup solo local"
+fi
