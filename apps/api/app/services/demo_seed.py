@@ -169,6 +169,58 @@ def _seed_operations(db: Session) -> None:
     sell("cli-5", [("BEB-AGUA-500", 48), ("BEB-GASEOSA-2L", 24), ("SRV-INSTALACION", 2)], credit_c, "invoiced", 1)
     sell("mix-1", [("ALM-AZUCAR-1KG", 50), ("ALM-ACEITE-900", 30)], credit_c, "confirmed")
     sell("cli-2", [("LIM-JABON-POLVO-1KG", 10), ("BEB-JUGO-1L", 12)], cash_c, "draft")
+    _seed_crm(db, party)
+
+
+def _seed_crm(db: Session, party: dict) -> None:
+    """Embudo de ejemplo: prospectos ficticios (telefonos 000, emails
+    .invalid), oportunidades en distintas etapas y actividades pendientes."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.services import crm
+    from app.tenant_models.crm import ActivityKind, OpportunityStage
+
+    now = datetime.now(timezone.utc)
+    leads = {}
+    for key, contact, company, source in [
+        ("lead-1", "Carlos Ficticio", "Ferreteria Inventada S.A.", "WhatsApp"),
+        ("lead-2", "Laura Ejemplo", "Farmacia de Prueba", "Sitio web"),
+        ("lead-3", "Pedro Simulado", None, "Referido"),
+    ]:
+        leads[key] = crm.create_lead(db, user_id=None, owner_user_id=None, contact_name=contact, company_name=company,
+                                     email=f"{key}@ejemplo.invalid", phone="(000) 000-000", source=source,
+                                     notes="Prospecto ficticio (demo)").id
+
+    def opp(title, amount, stage, party_key=None, lead_key=None, days=30, close=None):
+        o = crm.create_opportunity(db, user_id=None, owner_user_id=None, title=title,
+                                   party_id=party[party_key] if party_key else None,
+                                   lead_id=leads[lead_key] if lead_key else None, amount=Decimal(amount),
+                                   expected_close_date=(now + timedelta(days=days)).date(), notes=None)
+        if stage != OpportunityStage.NEW:
+            crm.move_stage(db, o.id, stage, None)
+        if close == "won":
+            crm.win(db, o.id)
+        elif close == "lost":
+            crm.lose(db, o.id, "Eligio otro proveedor (demo)")
+        return o.id
+
+    q = OpportunityStage
+    o1 = opp("Provision mensual de bebidas", 12_000_000, q.NEGOTIATION, party_key="cli-3", days=10)
+    opp("Ampliacion de linea de limpieza", 4_500_000, q.PROPOSAL, party_key="cli-1", days=20)
+    o3 = opp("Abastecimiento de almacen", 8_000_000, q.QUALIFIED, lead_key="lead-1", days=35)
+    opp("Pedido para sucursal nueva", 3_200_000, q.NEW, lead_key="lead-2", days=45)
+    opp("Contrato anual de bebidas", 6_000_000, q.NEGOTIATION, party_key="cli-5", close="won")
+    opp("Insumos de limpieza", 2_000_000, q.PROPOSAL, party_key="cli-2", close="lost")
+
+    for kind, subject, opp_id, lead_key, hours in [
+        (ActivityKind.CALL, "Confirmar volumen mensual", o1, None, -20),
+        (ActivityKind.MEETING, "Visita para presentar catalogo", o3, None, 48),
+        (ActivityKind.WHATSAPP, "Enviar lista de precios", None, "lead-2", 4),
+        (ActivityKind.TASK, "Preparar propuesta escrita", o1, None, 24),
+    ]:
+        crm.create_activity(db, user_id=None, owner_user_id=None, kind=kind, subject=subject, notes=None, party_id=None,
+                            lead_id=leads[lead_key] if lead_key else None, opportunity_id=opp_id,
+                            due_at=now + timedelta(hours=hours))
 
 
 def seed_demo_company(engine: Engine) -> bool:

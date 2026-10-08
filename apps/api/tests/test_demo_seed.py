@@ -86,6 +86,10 @@ def test_demo_has_consistent_operations(dbs):
     with dbs["demo"].connect() as c:
         q = lambda sql: c.execute(text(sql)).scalar()  # noqa: E731
         assert q("SELECT count(*) FROM sales_invoices WHERE status='ISSUED'") == 5
+        assert q("SELECT count(*) FROM crm_leads WHERE status='OPEN'") == 3
+        assert q("SELECT count(*) FROM crm_opportunities WHERE stage IN ('WON','LOST')") == 2
+        assert q("SELECT count(*) FROM crm_opportunities WHERE stage NOT IN ('WON','LOST')") == 4
+        assert q("SELECT count(*) FROM crm_activities WHERE done_at IS NULL") == 4
         assert q("SELECT count(*) FROM sales_invoices WHERE fiscal_status <> 'INTERNAL_SIMULATION'") == 0
         assert q("SELECT count(*) FROM sales_orders WHERE status='CONFIRMED'") == 1
         assert q("SELECT count(*) FROM sales_orders WHERE status='DRAFT'") == 1

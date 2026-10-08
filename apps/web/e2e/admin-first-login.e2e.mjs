@@ -28,7 +28,10 @@ function totp(secret, offset = 0) {
   return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, "0");
 }
 
-const browser = await chromium.launch({ args: ["--no-sandbox", "--disable-gpu"] });
+const browser = await chromium.launch({
+  // E2E_HOST_RULES="MAP nexatecpy.com 104.21.50.187": util si el resolver local tiene cacheado un NXDOMAIN.
+  args: ["--no-sandbox", "--disable-gpu", ...(process.env.E2E_HOST_RULES ? [`--host-resolver-rules=${process.env.E2E_HOST_RULES}`] : [])],
+});
 const page = await browser.newPage({ viewport: { width: 1300, height: 900 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));

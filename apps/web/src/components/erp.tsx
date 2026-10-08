@@ -21,6 +21,7 @@ export function useErp(): ErpValue {
 // lo que el rol puede ver; el servidor igual lo valida en cada endpoint).
 const NAV = [
   { href: "", label: "Tablero", perm: "dashboard:read" },
+  { href: "/crm", label: "CRM", perm: "crm:read" },
   { href: "/ventas", label: "Ventas", perm: "sales:read" },
   { href: "/cobranzas", label: "Facturas y cobros", perm: "receivables:read" },
   { href: "/compras", label: "Compras", perm: "purchases:read" },
@@ -195,13 +196,15 @@ export interface Column<T> {
   align?: "right";
 }
 
-export function Table<T>({ rows, columns, empty = "No hay registros.", rowKey }: {
-  rows: T[]; columns: Column<T>[]; empty?: string; rowKey: (row: T) => string;
+/** `compact`: sin ancho minimo, para tablas de pocas columnas en paneles
+ *  angostos (si no, el scroll horizontal esconde las ultimas columnas). */
+export function Table<T>({ rows, columns, empty = "No hay registros.", rowKey, compact = false }: {
+  rows: T[]; columns: Column<T>[]; empty?: string; rowKey: (row: T) => string; compact?: boolean;
 }) {
   if (rows.length === 0) return <p className="py-6 text-center text-sm text-nx-muted">{empty}</p>;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-left text-sm">
+      <table className={`w-full ${compact ? "" : "min-w-[640px]"} text-left text-sm`}>
         <thead>
           <tr className="border-b border-nx-line text-xs uppercase tracking-wider text-nx-muted">
             {columns.map((c) => (

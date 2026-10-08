@@ -86,6 +86,7 @@ def roles():
 READS = {
     "accounting": "/accounting/reports/trial-balance", "payables": "/payables/aging", "receivables": "/receivables/aging",
     "dashboard": "/dashboard", "sales": "/sales/orders", "inventory": "/stock/balances", "products": "/products",
+    "crm": "/crm/pipeline",
 }
 
 
@@ -118,6 +119,12 @@ def test_writes_follow_the_matrix(roles):
     today = datetime.now(timezone.utc)
     assert c[R.MANAGER].post(f"{base}/accounting/periods/{today.year}/1/close", json={"note": "intento"}).status_code == 403
     assert c[R.ACCOUNTANT].post(f"{base}/accounting/periods/2000/1/close", json={"note": "cierre viejo"}).status_code == 200
+    # CRM: Ventas y Gerencia cargan prospectos; Deposito ni lo ve.
+    lead = {"contact_name": "Ana Prospecto", "phone": "0981000000"}
+    assert c[R.SALES].post(f"{base}/crm/leads", json=lead).status_code == 201
+    assert c[R.MANAGER].post(f"{base}/crm/leads", json=lead).status_code == 201
+    assert c[R.WAREHOUSE].get(f"{base}/crm/leads").status_code == 403
+    assert c[R.FINANCE].post(f"{base}/crm/leads", json=lead).status_code == 403
     # Consulta y Auditor no escriben nada.
     for ro in (R.CLIENT_USER, R.AUDITOR):
         assert c[ro].post(f"{base}/sales/orders", json=order).status_code == 403

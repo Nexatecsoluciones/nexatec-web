@@ -7,12 +7,13 @@ revalida.
 
 Modulos: settings (empresa, sucursales, depositos), products, parties,
 inventory, sales, receivables (facturas internas, cobros), purchases,
-payables (facturas de proveedor, pagos), accounting, dashboard."""
+payables (facturas de proveedor, pagos), accounting, crm (prospectos,
+oportunidades, actividades), dashboard."""
 
 from app.models.tenancy_enums import TenantMemberRole as R
 
 MODULES = ("settings", "products", "parties", "inventory", "sales", "receivables",
-           "purchases", "payables", "accounting", "dashboard")
+           "purchases", "payables", "accounting", "crm", "dashboard")
 
 ALL_READ = {f"{m}:read" for m in MODULES}
 ALL_WRITE = {f"{m}:write" for m in MODULES if m != "dashboard"}
@@ -23,13 +24,15 @@ PERMISSIONS: dict[R, frozenset[str]] = {
     # Solo lectura de todo (rol historico "usuario").
     R.CLIENT_USER: frozenset(ALL_READ),
     R.AUDITOR: frozenset(ALL_READ),
-    R.MANAGER: frozenset(ALL_READ | {"products:write", "parties:write", "sales:write", "purchases:write"}),
+    R.MANAGER: frozenset(ALL_READ | {"products:write", "parties:write", "sales:write", "purchases:write",
+                                     "crm:write"}),
     R.FINANCE: frozenset(ALL_READ | {"parties:write", "receivables:write", "payables:write",
                                      "accounting:write", "accounting:periods"}),
     R.ACCOUNTANT: frozenset(ALL_READ | {"accounting:write", "accounting:periods"}),
     # Ventas: no ve contabilidad, ni proveedores/pagos, ni el tablero de montos.
     R.SALES: frozenset({"settings:read", "products:read", "parties:read", "inventory:read", "sales:read",
-                        "receivables:read", "parties:write", "sales:write", "sales:deliver"}),
+                        "receivables:read", "crm:read", "parties:write", "sales:write", "sales:deliver",
+                        "crm:write"}),
     R.PURCHASING: frozenset({"settings:read", "products:read", "parties:read", "inventory:read", "purchases:read",
                              "payables:read", "parties:write", "products:write", "purchases:write", "purchases:receive"}),
     # Deposito: mueve mercaderia; ve pedidos y ordenes para entregar/recibir,

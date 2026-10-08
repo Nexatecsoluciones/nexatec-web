@@ -169,6 +169,33 @@ async function call<T>(path: string, init?: RequestInit & { idempotent?: boolean
   return (await res.json()) as T;
 }
 
+export type OpportunityStage = "NEW" | "QUALIFIED" | "PROPOSAL" | "NEGOTIATION" | "WON" | "LOST";
+export const OPEN_STAGES: OpportunityStage[] = ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION"];
+export type ActivityKind = "CALL" | "MEETING" | "EMAIL" | "WHATSAPP" | "TASK" | "NOTE";
+
+export interface Lead {
+  id: string; contact_name: string; company_name: string | null; email: string | null; phone: string | null;
+  source: string | null; status: "OPEN" | "CONVERTED" | "DISCARDED"; party_id: string | null; notes: string | null;
+  discard_reason: string | null; created_at: string;
+}
+
+export interface Opportunity {
+  id: string; number: string; title: string; party_id: string | null; lead_id: string | null; account_name: string | null;
+  stage: OpportunityStage; amount: Money; currency: string; probability: number; expected_close_date: string | null;
+  notes: string | null; lost_reason: string | null; closed_at: string | null; created_at: string;
+}
+
+export interface Activity {
+  id: string; kind: ActivityKind; subject: string; notes: string | null; party_id: string | null; lead_id: string | null;
+  opportunity_id: string | null; due_at: string | null; done_at: string | null; created_at: string;
+}
+
+export interface Pipeline {
+  stages: { stage: OpportunityStage; count: number; amount: Money; weighted: Money }[];
+  open_count: number; open_amount: Money; forecast: Money; won_amount: Money; win_rate: number | null;
+  overdue_activities: number;
+}
+
 export function erp(accessId: string) {
   const base = `/api/erp/${accessId}`;
   const qs = (params?: Record<string, string | number | boolean | undefined | null>) => {
@@ -215,6 +242,9 @@ export const STATUS_LABEL: Record<string, string> = {
   RECEIPT: "Entrada", ISSUE: "Salida", ADJUSTMENT_IN: "Ajuste +", ADJUSTMENT_OUT: "Ajuste -",
   TRANSFER_IN: "Transferencia entrada", TRANSFER_OUT: "Transferencia salida", REVERSAL: "Reversion",
   UNVERIFIED: "Sin verificar", FORMAT_OK: "Formato valido", VERIFIED_PROVIDER: "Verificado", FICTITIOUS: "Ficticio",
+  NEW: "Nuevo", QUALIFIED: "Calificado", PROPOSAL: "Propuesta", NEGOTIATION: "Negociacion", WON: "Ganada", LOST: "Perdida",
+  OPEN: "Abierto", CONVERTED: "Convertido", DISCARDED: "Descartado",
+  CALL: "Llamada", MEETING: "Reunion", EMAIL: "Email", WHATSAPP: "WhatsApp", TASK: "Tarea", NOTE: "Nota",
 };
 
 export const label = (code: string) => STATUS_LABEL[code] ?? code;

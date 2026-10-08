@@ -288,6 +288,30 @@ la cuenta Mercaderías pueden diferir en unidades de guaraní.
 - Pendiente: aplicar el saldo a favor de una nota de crédito a otra factura
   (hoy queda como anticipo visible) y devolución de dinero.
 
+## Revisión `7c1e5a92d3f4` — CRM
+
+- `crm_leads`: prospectos (todavía no son clientes). Exigen email o
+  teléfono. `OPEN → CONVERTED | DISCARDED`. Convertir crea el `Party` cliente
+  (sin RUC: se completa y valida en Terceros) y mueve al cliente las
+  oportunidades y actividades del prospecto. No se descarta con oportunidades
+  abiertas.
+- `crm_opportunities` (`OP-000001`): de un cliente **o** de un prospecto
+  (CHECK exactamente uno). Etapas `NEW → QUALIFIED → PROPOSAL → NEGOTIATION`
+  con probabilidad sugerida 10/25/50/75 % (editable), y cierre `WON`
+  (exige cliente, no prospecto, y monto > 0) o `LOST` (exige motivo, CHECK).
+  Cerrada = inmutable por la API; `closed_at` presente sí y solo sí está
+  cerrada (CHECK).
+- `crm_activities`: llamada, reunión, email, WhatsApp, tarea, nota; ligada a
+  cliente, prospecto u oportunidad (hereda el cliente/prospecto de la
+  oportunidad). Una nota nace completada.
+- `GET /crm/pipeline`: cantidad y monto por etapa, pronóstico ponderado
+  (monto × probabilidad de las abiertas), ganado, tasa de cierre y actividades
+  vencidas; `?mine=true` filtra por responsable.
+- Permisos `crm:read` / `crm:write`: escriben Administrador, Gerencia y
+  Ventas; convertir un prospecto exige además `parties:write`.
+- La demo trae 3 prospectos, 6 oportunidades (4 abiertas, 1 ganada,
+  1 perdida) y 4 actividades pendientes.
+
 ## Comprobantes imprimibles / PDF
 
 `/imprimir/{acceso}/factura/{id}` y `/imprimir/{acceso}/nota-credito/{id}`:
@@ -331,13 +355,12 @@ de producción arrancan **vacías**.
 
 ## Qué NO existe todavía
 
-- Pantallas (frontend) para estos maestros.
-- Reservas de stock por pedido (el campo `reserved` existe, nadie lo usa todavía), lotes/series/vencimientos, FIFO.
+- Lotes/series/vencimientos, FIFO.
 - Integración SIFEN (bloqueada por diseño, ver gate fiscal).
 - Retenciones de IVA/renta en pagos, costos de importación (landed cost), solicitudes y cotizaciones de compra.
 - Cierre anual (traslado de resultados a Resultados acumulados), conciliación bancaria, centros de costo, multimoneda con diferencia de cambio.
 - Historia de 3–6 meses en la demo (requiere permitir fechas pasadas de forma controlada solo en DEMO).
-- Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).
+- CRM: campañas, embudos configurables por empresa, presupuesto/pedido generado desde la oportunidad, recordatorios por email.
 
 ## Roles y permisos dentro de la empresa
 
@@ -350,10 +373,10 @@ aparece una nueva sin permiso. La interfaz recibe la lista en
 | Rol | Lee | Escribe |
 |---|---|---|
 | Administrador | todo | todo |
-| Gerencia | todo | productos, terceros, ventas, compras |
+| Gerencia | todo | productos, terceros, ventas, compras, CRM |
 | Finanzas | todo | terceros, facturas/cobros, facturas de proveedor/pagos, contabilidad, cierre de períodos |
 | Contador | todo | contabilidad, cierre de períodos |
-| Ventas | maestros, stock, ventas, cobranzas (no contabilidad, proveedores ni tablero) | terceros, pedidos, entregas |
+| Ventas | maestros, stock, ventas, cobranzas, CRM (no contabilidad, proveedores ni tablero) | terceros, pedidos, entregas, CRM |
 | Compras | maestros, stock, compras, cuentas por pagar | productos, terceros, órdenes de compra, recepciones |
 | Depósito | maestros, stock, pedidos y órdenes de compra | movimientos de stock, entregas, recepciones |
 | Consulta / Auditor | todo | nada |

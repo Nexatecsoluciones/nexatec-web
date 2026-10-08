@@ -8,7 +8,10 @@ const BASE = process.env.E2E_BASE_URL ?? "https://nexatecpy.com";
 const SHOTS = process.env.E2E_SHOTS ?? new URL("./shots/", import.meta.url).pathname;
 fs.mkdirSync(SHOTS, { recursive: true });
 
-const browser = await chromium.launch({ args: ["--no-sandbox", "--disable-gpu"] });
+const browser = await chromium.launch({
+  // E2E_HOST_RULES="MAP nexatecpy.com 104.21.50.187": util si el resolver local tiene cacheado un NXDOMAIN.
+  args: ["--no-sandbox", "--disable-gpu", ...(process.env.E2E_HOST_RULES ? [`--host-resolver-rules=${process.env.E2E_HOST_RULES}`] : [])],
+});
 const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
@@ -134,6 +137,26 @@ await step("contabilidad cuadra", async () => {
   await page.screenshot({ path: `${SHOTS}04-balance.png`, fullPage: true });
 });
 
+await step("CRM: embudo, ganar oportunidad, prospecto a cliente", async () => {
+  await page.goto(`${erp}/crm`);
+  await expectText("Pronostico");
+  await page.getByRole("button", { name: /Provision mensual de bebidas/ }).click();
+  await expectText("Confirmar volumen mensual");
+  await page.getByRole("button", { name: "Ganada", exact: true }).click();
+  await expectText("Oportunidad ganada.");
+  const leadForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Cargar prospecto" }) });
+  await leadForm.getByLabel("Contacto").fill("Prospecto E2E");
+  await leadForm.getByLabel("Empresa").fill("Empresa E2E Ficticia");
+  await leadForm.getByLabel("Telefono").fill("(000) 000-000");
+  await page.getByRole("button", { name: "Cargar prospecto" }).click();
+  await expectText("Prospecto cargado.");
+  await page.getByRole("row", { name: /Empresa E2E Ficticia/ }).getByRole("button", { name: "A cliente" }).click();
+  await expectText("Prospecto convertido en cliente");
+  await page.screenshot({ path: `${SHOTS}04-crm.png`, fullPage: true });
+  await page.goto(`${erp}/terceros`);
+  await expectText("Empresa E2E Ficticia");
+});
+
 await step("movil (390px) sin scroll horizontal de pagina", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${erp}`);
@@ -141,6 +164,11 @@ await step("movil (390px) sin scroll horizontal de pagina", async () => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   await page.screenshot({ path: `${SHOTS}05-movil.png`, fullPage: true });
   if (overflow > 2) throw new Error(`la pagina desborda ${overflow}px`);
+  await page.goto(`${erp}/crm`);
+  await expectText("Pronostico");
+  const crmOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  await page.screenshot({ path: `${SHOTS}05-movil-crm.png`, fullPage: true });
+  if (crmOverflow > 2) throw new Error(`el CRM desborda ${crmOverflow}px`);
 });
 
 await browser.close();

@@ -8,7 +8,7 @@ diga "Activo = Pasivo + Patrimonio" → revisa que en un celular (390 px) la
 página no desborde. Falla si hay errores de JavaScript en consola. Guarda
 capturas en `E2E_SHOTS` (por defecto `apps/web/e2e/shots/`, ignorado por git).
 
-Última corrida (2026-10-08): **16/16 OK, sin errores de consola**. Además `admin-first-login.e2e.mjs` (primer ingreso de superadmin con cambio de contraseña y MFA): 5/5.
+Última corrida (2026-10-08): **17/17 OK (incluye CRM: ganar oportunidad y convertir prospecto), sin errores de consola**. Además `admin-first-login.e2e.mjs` (primer ingreso de superadmin con cambio de contraseña y MFA): 5/5.
 
 ## Cómo correrla
 
@@ -34,6 +34,9 @@ python scripts/e2e_tenant.py create $W/cred.json
 cp /home/opc/nexatec-web/apps/web/e2e/erp.e2e.mjs $W/ && cd $W
 LD_LIBRARY_PATH=$W/libs/usr/lib64 PLAYWRIGHT_BROWSERS_PATH=$W/browsers \
   E2E_SHOTS=$W/shots/ node erp.e2e.mjs cred.json
+
+# Si el DNS local del servidor todavia no resuelve nexatecpy.com (cache de
+# NXDOMAIN), agregar: E2E_HOST_RULES="MAP nexatecpy.com 104.21.50.187"
 
 # Siempre al final: borra base física, filas y el archivo de credenciales.
 cd /home/opc/nexatec-web/apps/api && python scripts/e2e_tenant.py destroy $W/cred.json
