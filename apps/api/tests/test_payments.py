@@ -9,6 +9,8 @@ import uuid
 from decimal import Decimal
 
 import pytest
+
+from app.core.config import get_settings
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -333,3 +335,22 @@ def test_bancard_webhook_rejects_tampered_amount(monkeypatch, tenant_with_user, 
         db2.close()
     finally:
         get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _enable_transfer_checkout(monkeypatch, request):
+    # Estos tests prueban el flujo de transferencia; en produccion/staging
+    # esta APAGADO por defecto (ver test_checkout_disabled_by_default).
+    if request.node.name != "test_checkout_disabled_by_default":
+        monkeypatch.setattr(get_settings(), "self_checkout_transfer_enabled", True)
+
+
+def test_checkout_disabled_by_default(tenant_with_user, plan):
+    settings = get_settings()
+    assert settings.self_checkout_card_enabled is False
+    assert settings.self_checkout_transfer_enabled is False
+    client = tenant_with_user["client"]
+    for method in ("BANK_TRANSFER", "BANCARD_CARD"):
+        r = client.post("/api/portal/checkout", json={"tenant_id": str(tenant_with_user["tenant"].id),
+                                                      "plan_id": str(plan.id), "method": method})
+        assert r.status_code == 503 and "WhatsApp" in r.json()["detail"]

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_audit
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.net import safe_ip
 from app.models.media import MediaAsset
@@ -115,6 +116,15 @@ async def create_checkout(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     assert_tenant_membership(db, current_user, payload.tenant_id)
+
+    settings = get_settings()
+    enabled = (settings.self_checkout_transfer_enabled if payload.method == PaymentMethod.BANK_TRANSFER
+               else settings.self_checkout_card_enabled)
+    if not enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="La contratacion en linea no esta habilitada. Escribinos por WhatsApp y te ayudamos a contratar.",
+        )
 
     plan = db.get(Plan, payload.plan_id)
     if plan is None or not plan.is_active:

@@ -1,5 +1,12 @@
 # Pagos (FASE 6)
 
+> **Estado actual (2026-10-08): autoservicio de pago APAGADO.** Por decisión
+> comercial, `POST /api/portal/checkout` responde `503` para tarjeta y para
+> transferencia (`NEXATEC_SELF_CHECKOUT_CARD_ENABLED` y
+> `NEXATEC_SELF_CHECKOUT_TRANSFER_ENABLED`, ambos `false` por defecto). La
+> venta se cierra por WhatsApp y el alta/pago se registra a mano desde el
+> Control Center. El código y las credenciales de Bancard se conservan.
+
 Arquitectura modular: `app/services/payments/provider.py` define una
 interfaz `PaymentProvider` para checkouts con tarjeta (hoy solo Bancard la
 implementa). La transferencia bancaria es un flujo propio, manual, que

@@ -87,6 +87,13 @@ class Settings(BaseSettings):
     cloudflare_tunnel_id: str = Field(default="", alias="CLOUDFLARE_TUNNEL_ID")
     cloudflare_tunnel_service: str = Field(default="http://127.0.0.1:4302", alias="CLOUDFLARE_TUNNEL_SERVICE")
 
+    # Autoservicio de pago desde el portal. APAGADO por decision comercial:
+    # la venta se cierra por WhatsApp y el alta/pago se registra a mano en el
+    # Control Center. El codigo de Bancard y sus credenciales se conservan;
+    # prender solo cuando NEXATEC lo decida.
+    self_checkout_card_enabled: bool = Field(default=False, alias="NEXATEC_SELF_CHECKOUT_CARD_ENABLED")
+    self_checkout_transfer_enabled: bool = Field(default=False, alias="NEXATEC_SELF_CHECKOUT_TRANSFER_ENABLED")
+
     # Contacto comercial (CTA "Solicitar mi sistema por WhatsApp"). Solo
     # digitos, formato internacional sin "+".
     whatsapp_number: str = Field(default="595971205040", alias="NEXATEC_WHATSAPP_NUMBER", pattern=r"^[0-9]{8,15}$")
