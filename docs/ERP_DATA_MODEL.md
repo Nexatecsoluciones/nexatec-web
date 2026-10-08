@@ -118,6 +118,38 @@ Lógica en `app/services/inventory.py`, API en `/api/erp/{system_access_id}/stoc
   admiten movimientos.
 - Escribe solo `CLIENT_ADMIN`; todo queda auditado.
 
+## Revisión `aee18fddad86` — pedidos de venta
+
+| Tabla | Qué es | Reglas en la base |
+|---|---|---|
+| `document_sequences` | Correlativos por tipo de documento (`SALES_ORDER` → `OV-000001`) | Se toma con `FOR UPDATE` en la misma transacción: si falla la creación, el número no se consume (sin huecos) |
+| `sales_orders` | Cabecera | Montos `>= 0`; número único |
+| `sales_order_lines` | Líneas con tasa de IVA, montos y costo **congelados** | Cantidad `> 0`; descuento 0–100; `line_total = line_net + line_tax` |
+
+Estados (`app/services/sales.py`, API en `/api/erp/{id}/sales/orders`):
+
+```
+DRAFT --confirm--> CONFIRMED --deliver--> DELIVERED
+  |                   |
+  +----cancel---------+--> CANCELLED (libera la reserva)
+```
+
+- **Confirmar** reserva stock de los bienes (`stock_balances.reserved`); si no
+  alcanza, 409 y el pedido queda en borrador. La reserva impide que otra
+  venta tome ese stock (test con 6 confirmaciones simultáneas de 3 sobre
+  10: pasan 3).
+- **Entregar** descuenta stock desde lo reservado (movimiento `ISSUE` con la
+  referencia del pedido) y congela el costo unitario de cada línea (base del
+  margen). Reintentar una entrega no vuelve a descontar.
+- Un pedido **entregado no se cancela**: requiere devolución/nota de crédito
+  (no implementado todavía).
+- Las líneas solo se editan en borrador.
+- **IVA incluido**: `bruto = cant × precio × (1 − desc%)`,
+  `iva = bruto × tasa / (100 + tasa)`, `neto = bruto − iva`, redondeado a
+  los decimales de la moneda (PYG: 0). Es cálculo de gestión; la
+  liquidación tributaria la valida un contador y, para comprobantes
+  electrónicos, SIFEN.
+
 ## Empresa demo ficticia (`app/services/demo_seed.py`)
 
 Al aprovisionar una base de **DEMO** (nunca PRODUCTION) se carga, en una
@@ -139,6 +171,8 @@ de producción arrancan **vacías**.
 
 - Pantallas (frontend) para estos maestros.
 - Reservas de stock por pedido (el campo `reserved` existe, nadie lo usa todavía), lotes/series/vencimientos, FIFO.
-- Ventas, compras, CxC/CxP, contabilidad.
+- Factura (interna/simulación), cobros, cuentas por cobrar, devoluciones y notas de crédito.
+- Compras, cuentas por pagar, contabilidad.
+- Control de límite de crédito al confirmar (necesita cuentas por cobrar).
 - Historia transaccional en la demo (ventas/compras de 3-6 meses): depende de que existan esos módulos.
 - Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).

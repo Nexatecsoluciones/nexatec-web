@@ -14,6 +14,7 @@ from app.routers import (
     demos,
     erp_inventory,
     erp_masters,
+    erp_sales,
     jobs,
     media,
     password_reset,
@@ -98,6 +99,7 @@ app.include_router(portal.router)
 app.include_router(public_hostname.router)
 app.include_router(erp_masters.router)
 app.include_router(erp_inventory.router)
+app.include_router(erp_sales.router)
 app.include_router(media.router)
 app.include_router(payments.router)
 app.include_router(system_status.router)

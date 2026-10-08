@@ -289,3 +289,46 @@ def reverse(op: OpContext, movement_id: uuid.UUID) -> list[StockMovement]:
                                  qty=leg.quantity, direction=-leg.direction, unit_cost=leg.unit_cost,
                                  group_id=group, reverses=leg.id))
     return created
+
+
+# --- Reservas (para pedidos de venta) ----------------------------------------
+# Una reserva no es un movimiento: no cambia on_hand ni el kardex, solo
+# aparta stock (reserved) para que otra venta no lo tome.
+
+
+def reserve(op: OpContext, product_id: uuid.UUID, warehouse_id: uuid.UUID, quantity: Decimal) -> None:
+    product = _lock_product(op.db, product_id)
+    _check_stockable(product)
+    _check_warehouse(op.db, warehouse_id)
+    qty = _qty(quantity)
+    balance = _lock_balance(op.db, product.id, warehouse_id)
+    available = balance.on_hand - balance.reserved
+    if available < qty:
+        raise InsufficientStock(
+            f"Stock insuficiente para reservar {product.sku}: disponible {available.normalize()}, pedido {qty.normalize()}."
+        )
+    balance.reserved += qty
+
+
+def release(op: OpContext, product_id: uuid.UUID, warehouse_id: uuid.UUID, quantity: Decimal) -> None:
+    product = _lock_product(op.db, product_id)
+    qty = _qty(quantity)
+    balance = _lock_balance(op.db, product.id, warehouse_id)
+    if balance.reserved < qty:
+        raise InventoryError("La reserva a liberar es mayor que lo reservado.")
+    balance.reserved -= qty
+
+
+def issue_reserved(op: OpContext, product_id: uuid.UUID, warehouse_id: uuid.UUID, quantity: Decimal,
+                   group_id: uuid.UUID | None = None) -> StockMovement:
+    """Entrega stock que ya estaba reservado: baja reserved y on_hand juntos
+    y deja el movimiento ISSUE al costo promedio vigente."""
+    product = _lock_product(op.db, product_id)
+    qty = _qty(quantity)
+    balance = _lock_balance(op.db, product.id, warehouse_id)
+    if balance.reserved < qty or balance.on_hand < qty:
+        raise InventoryError("No hay stock reservado suficiente para entregar.")
+    balance.reserved -= qty
+    balance.on_hand -= qty
+    return _movement(op, mtype=MovementType.ISSUE, product=product, warehouse_id=warehouse_id, qty=qty,
+                     direction=-1, unit_cost=product.average_cost, group_id=group_id)
