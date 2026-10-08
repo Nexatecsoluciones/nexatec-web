@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from typing import Literal
 
@@ -9,7 +10,13 @@ class Settings(BaseSettings):
     """Configuracion central. Pydantic falla al arrancar si falta una
     variable obligatoria (sin valores de fallback inseguros)."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # El .env local solo se lee en desarrollo/tests. En staging/produccion
+    # todo sale del EnvironmentFile del servicio: un .env de desarrollo en el
+    # directorio de trabajo nunca puede completar (ni debilitar) esa config.
+    model_config = SettingsConfigDict(
+        env_file=".env" if os.environ.get("NEXATEC_ENV", "development") in ("development", "test") else None,
+        extra="ignore",
+    )
 
     nexatec_env: Literal["development", "test", "staging", "production"] = Field(
         alias="NEXATEC_ENV"

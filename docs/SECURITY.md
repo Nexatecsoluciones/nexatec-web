@@ -225,10 +225,10 @@ desarrollo**. Esto hizo que un ajuste pensado solo para tests
 detectó la prueba E2E y se corrigió (el ajuste de tests vive ahora en
 `tests/conftest.py`, y staging define el valor explícitamente).
 
-Regla: nunca poner en `apps/api/.env` un valor que debilite la seguridad;
-toda variable sensible de staging/producción debe estar explícita en su
-EnvironmentFile. Pendiente recomendado: que staging/producción no lean
-ningún `.env` (p.ej. `env_file` condicionado a `NEXATEC_ENV=development`).
+**Corregido de raíz:** `app/core/config.py` ahora lee `.env` solo si
+`NEXATEC_ENV` es `development` o `test`. Staging/producción toman todo de
+su EnvironmentFile (se verificó antes del cambio que staging define todas
+las variables obligatorias por sí solo).
 
 ## Los tests ya no usan la base de staging
 
