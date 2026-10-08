@@ -80,3 +80,26 @@ def test_seed_is_idempotent(dbs):
     with dbs["demo"].connect() as c:
         assert c.execute(text("SELECT count(*) FROM company")).scalar() == 1
         assert c.execute(text("SELECT count(*) FROM branches")).scalar() == 1
+
+
+def test_demo_has_consistent_operations(dbs):
+    with dbs["demo"].connect() as c:
+        q = lambda sql: c.execute(text(sql)).scalar()  # noqa: E731
+        assert q("SELECT count(*) FROM sales_invoices WHERE status='ISSUED'") == 5
+        assert q("SELECT count(*) FROM sales_invoices WHERE fiscal_status <> 'INTERNAL_SIMULATION'") == 0
+        assert q("SELECT count(*) FROM sales_orders WHERE status='CONFIRMED'") == 1
+        assert q("SELECT count(*) FROM sales_orders WHERE status='DRAFT'") == 1
+        assert q("SELECT coalesce(sum(balance_due),0) FROM sales_invoices") > 0          # hay deuda de clientes
+        assert q("SELECT coalesce(sum(balance_due),0) FROM supplier_invoices") > 0       # y a proveedores
+        assert q("SELECT coalesce(sum(reserved),0) FROM stock_balances") > 0             # pedido confirmado reserva
+        assert q("SELECT count(*) FROM purchase_orders WHERE status='PARTIALLY_RECEIVED'") == 1
+        assert q("SELECT min(on_hand) FROM stock_balances") >= 0
+        # Toda la contabilidad cuadra, asiento por asiento y en total.
+        assert q("SELECT count(*) FROM (SELECT entry_id FROM journal_lines GROUP BY entry_id "
+                 "HAVING sum(debit) <> sum(credit)) x") == 0
+        assert q("SELECT sum(debit) - sum(credit) FROM journal_lines") == 0
+        # Caja no queda negativa: el aporte de capital cubre los pagos.
+        assert q("SELECT sum(l.debit - l.credit) FROM journal_lines l JOIN accounts a ON a.id = l.account_id "
+                 "WHERE a.code = '1.1.01'") > 0
+        assert q("SELECT sum(l.debit - l.credit) FROM journal_lines l JOIN accounts a ON a.id = l.account_id "
+                 "WHERE a.code = '1.1.02'") > 0

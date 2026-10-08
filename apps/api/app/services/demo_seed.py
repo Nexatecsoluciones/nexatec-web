@@ -17,6 +17,7 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 from app.services.ruc import compute_dv
+from app.tenant_models.accounting import Account
 from app.tenant_models.core import (
     Branch,
     Company,
@@ -76,6 +77,100 @@ _PARTIES = [
 ]
 
 
+def _seed_operations(db: Session) -> None:
+    """Operaciones de ejemplo hechas con los MISMOS servicios que usa el
+    sistema (no inserts directos): stock, facturas, cobros, deuda y asientos
+    quedan consistentes por construccion. Fechadas hoy (los servicios no
+    permiten registrar en el pasado)."""
+    from app.services import accounting, purchases, receivables, sales
+    from app.services.receivables import AllocationInput
+    from app.tenant_models.accounting import AccountMapping
+    from app.tenant_models.receivables import PaymentMethod
+    from app.tenant_models.sales import PaymentCondition
+
+    pid = {sku: _id(f"prod-{sku}") for sku, *_ in _PRODUCTS}
+    party = {key: _id(f"party-{key}") for key, *_ in _PARTIES}
+    wh = _id("wh-principal")
+
+    cash = db.get(AccountMapping, "CASH").account_id
+    bank = db.get(AccountMapping, "BANK").account_id
+    capital = db.execute(select(Account.id).where(Account.code == "3.1.01")).scalar_one()
+    accounting.post_entry(db, accounting.EntryDraft(
+        accounting._today(db), "Aporte de capital inicial (demo)", "MANUAL", None,
+        [accounting.Line(cash, debit=Decimal(10_000_000)), accounting.Line(bank, debit=Decimal(70_000_000)),
+         accounting.Line(capital, credit=Decimal(80_000_000))],
+    ))
+
+    def buy(supplier_key, items, receive_ratio, invoice_number, pay_ratio):
+        po = purchases.create_po(db, user_id=None, supplier_id=party[supplier_key], warehouse_id=wh, expected_date=None,
+                                 notes="Compra de ejemplo (demo)", lines=[
+                                     purchases.POLineInput(pid[sku], Decimal(q), Decimal(cost)) for sku, q, cost in items])
+        db.flush()
+        purchases.confirm_po(db, po.id)
+        purchases.receive(db, po.id, None, [
+            purchases.ReceiveItem(line.line_no, (line.quantity * Decimal(receive_ratio)).quantize(Decimal("1")))
+            for line in po.lines], None)
+        if invoice_number:
+            b = purchases.Breakdown()
+            for line in po.lines:
+                share = line.quantity_received / line.quantity
+                net = (line.line_net * share).quantize(Decimal("1"))
+                vat = (line.line_tax * share).quantize(Decimal("1"))
+                if line.tax_rate == 10:
+                    b.taxable_10 += net
+                    b.vat_10 += vat
+                else:
+                    b.taxable_5 += net
+                    b.vat_5 += vat
+            inv = purchases.register_supplier_invoice(
+                db, user_id=None, supplier_id=party[supplier_key], supplier_invoice_number=invoice_number,
+                supplier_timbrado="00000000", issue_date=receivables.local_today(db), due_date=None, breakdown=b,
+                purchase_order_id=po.id)
+            db.flush()
+            pay = (inv.total * Decimal(pay_ratio)).quantize(Decimal("1"))
+            if pay > 0:
+                purchases.post_payment(db, user_id=None, supplier_id=party[supplier_key], method=PaymentMethod.TRANSFER,
+                                       amount=pay, allocations=[AllocationInput(inv.id, pay)],
+                                       reference="Pago demo", idempotency_key=None)
+
+    # Precios de compra IVA incluido = costo * 1.1 (IVA10) o * 1.05 (IVA5).
+    buy("prov-3", [("BEB-AGUA-500", 300, 3080), ("BEB-GASEOSA-2L", 200, 10450), ("BEB-JUGO-1L", 150, 7920)],
+        1, "001-001-0004521", 0.6)
+    buy("prov-1", [("ALM-ARROZ-1KG", 400, 6615), ("ALM-AZUCAR-1KG", 300, 5355), ("ALM-ACEITE-900", 200, 12390),
+                   ("ALM-YERBA-500", 250, 10290)], 1, "002-001-0000877", 1)
+    buy("prov-2", [("LIM-LAVANDINA-1L", 200, 3960), ("LIM-DETERGENTE-750", 200, 7590),
+                   ("LIM-JABON-POLVO-1KG", 100, 16940)], 0.5, None, 0)
+
+    def sell(customer_key, items, condition, stage, paid_ratio=0):
+        order = sales.create_order(db, user_id=None, customer_id=party[customer_key], warehouse_id=wh,
+                                   payment_condition=condition, notes="Venta de ejemplo (demo)",
+                                   lines=[sales.LineInput(pid[sku], Decimal(q)) for sku, q in items])
+        db.flush()
+        if stage == "draft":
+            return
+        sales.confirm(db, order.id, None)
+        if stage == "confirmed":
+            return
+        sales.deliver(db, order.id, None)
+        inv = receivables.invoice_order(db, order.id, None)
+        db.flush()
+        paid = (inv.total * Decimal(paid_ratio)).quantize(Decimal("1"))
+        if paid > 0:
+            receivables.post_receipt(db, user_id=None, customer_id=party[customer_key],
+                                     method=PaymentMethod.CASH if condition == PaymentCondition.CASH else PaymentMethod.TRANSFER,
+                                     amount=paid, allocations=[AllocationInput(inv.id, paid)], reference="Cobro demo",
+                                     idempotency_key=None)
+
+    cash_c, credit_c = PaymentCondition.CASH, PaymentCondition.CREDIT
+    sell("cli-6", [("BEB-AGUA-500", 24), ("ALM-YERBA-500", 6), ("SRV-ENTREGA", 1)], cash_c, "invoiced", 1)
+    sell("cli-4", [("ALM-ARROZ-1KG", 20), ("ALM-AZUCAR-1KG", 20), ("ALM-ACEITE-900", 10)], cash_c, "invoiced", 1)
+    sell("cli-3", [("BEB-GASEOSA-2L", 60), ("BEB-JUGO-1L", 40), ("LIM-DETERGENTE-750", 30)], credit_c, "invoiced", 0.5)
+    sell("cli-1", [("ALM-ARROZ-1KG", 80), ("ALM-YERBA-500", 40), ("LIM-LAVANDINA-1L", 30)], credit_c, "invoiced", 0)
+    sell("cli-5", [("BEB-AGUA-500", 48), ("BEB-GASEOSA-2L", 24), ("SRV-INSTALACION", 2)], credit_c, "invoiced", 1)
+    sell("mix-1", [("ALM-AZUCAR-1KG", 50), ("ALM-ACEITE-900", 30)], credit_c, "confirmed")
+    sell("cli-2", [("LIM-JABON-POLVO-1KG", 10), ("BEB-JUGO-1L", 12)], cash_c, "draft")
+
+
 def seed_demo_company(engine: Engine) -> bool:
     """Carga la empresa demo si la base esta vacia. Devuelve True si cargo,
     False si ya estaba (idempotente)."""
@@ -119,4 +214,6 @@ def seed_demo_company(engine: Engine) -> bool:
                 ruc_status=RucVerificationStatus.FICTITIOUS, is_customer=is_cust, is_supplier=is_supp,
                 email=f"{key}@ejemplo.invalid", payment_terms_days=terms, credit_limit=Decimal(limit),
             ))
+        db.flush()
+        _seed_operations(db)
     return True

@@ -277,6 +277,20 @@ sola transacción y de forma idempotente:
 - Todos los RUC en el rango `999xxxxx` con DV válido y estado
   `FICTITIOUS` (las personas jurídicas reales arrancan en 80.000.000).
 
+Además carga **operaciones** hechas con los mismos servicios del sistema
+(no inserts directos), así stock, facturas, deudas y asientos son
+consistentes por construcción:
+
+- Aporte de capital (Caja 10M + Bancos 70M).
+- 3 compras: bebidas (recibida, facturada, pagada 60%), almacén (recibida,
+  facturada, pagada 100%), limpieza (recibida 50%, sin facturar).
+- 5 ventas entregadas y facturadas (contado y crédito, cobradas total,
+  parcial o nada), 1 pedido confirmado (stock reservado) y 1 en borrador.
+
+Las operaciones quedan fechadas el día del aprovisionamiento (los servicios
+no permiten registrar en el pasado); por eso la antigüedad de saldos de
+una demo nueva arranca "al día".
+
 Si la carga falla, la base queda `FAILED` y la demo no se activa. Las bases
 de producción arrancan **vacías**.
 
@@ -288,5 +302,5 @@ de producción arrancan **vacías**.
 - Integración SIFEN (bloqueada por diseño, ver gate fiscal).
 - Retenciones de IVA/renta en pagos, costos de importación (landed cost), solicitudes y cotizaciones de compra.
 - Cierre anual (traslado de resultados a Resultados acumulados), conciliación bancaria, centros de costo, multimoneda con diferencia de cambio.
-- Historia transaccional en la demo (ventas/compras de 3-6 meses): depende de que existan esos módulos.
+- Historia de 3–6 meses en la demo (requiere permitir fechas pasadas de forma controlada solo en DEMO).
 - Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).
