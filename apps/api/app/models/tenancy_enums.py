@@ -23,6 +23,10 @@ class TenantMemberRole(str, enum.Enum):
     WAREHOUSE = "WAREHOUSE"
     ACCOUNTANT = "ACCOUNTANT"
     AUDITOR = "AUDITOR"
+    # RR.HH.: personal, asistencia, adelantos y planillas de pago.
+    HR = "HR"
+    # Jefe de obra: carga y revisa asistencia de su gente, no ve montos.
+    SITE_SUPERVISOR = "SITE_SUPERVISOR"
 
 
 class TenantMemberStatus(str, enum.Enum):
