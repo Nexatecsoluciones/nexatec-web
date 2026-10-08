@@ -10,6 +10,7 @@ Uso:
     python -m app.cli promote-user <email>
     python -m app.cli disable-user <email>
     python -m app.cli sweep-expired-demos
+    python -m app.cli migrate-tenants
 """
 
 import argparse
@@ -194,6 +195,39 @@ def cmd_sweep_expired_demos(_args: argparse.Namespace) -> int:
         db.close()
 
 
+def cmd_migrate_tenants(_args: argparse.Namespace) -> int:
+    """Lleva TODAS las bases de tenant READY a la ultima revision de
+    tenant_alembic/. Una por una (nunca en paralelo, no compite por
+    recursos con hesed-ot en el mismo PostgreSQL), y una falla en una base
+    no frena las demas -- se reporta al final con codigo de salida != 0."""
+    from app.models.tenancy import TenantDatabase
+    from app.models.tenancy_enums import ProvisioningStatus
+    from app.services.tenant_migrations import TenantMigrationError, head_revision, migrate_tenant_database
+
+    head = head_revision()
+    db = SessionLocal()
+    failed = 0
+    try:
+        rows = db.execute(
+            select(TenantDatabase).where(TenantDatabase.status == ProvisioningStatus.READY)
+            .order_by(TenantDatabase.created_at)
+        ).scalars().all()
+        print(f"Head: {head}. Bases READY: {len(rows)}")
+        for tenant_db in rows:
+            if tenant_db.schema_version == head:
+                print(f"  {tenant_db.database_identifier}: ya en head")
+                continue
+            try:
+                rev = migrate_tenant_database(db, tenant_db)
+                print(f"  {tenant_db.database_identifier}: {tenant_db.schema_version or '-'} -> {rev}")
+            except TenantMigrationError:
+                failed += 1
+                print(f"  {tenant_db.database_identifier}: FALLO (ver logs)")
+        return 1 if failed else 0
+    finally:
+        db.close()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="CLI administrativo de NEXATEC")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -209,6 +243,7 @@ def main() -> int:
     p_disable.add_argument("email")
 
     sub.add_parser("sweep-expired-demos", help="Marca EXPIRED los entitlements de demo vencidos")
+    sub.add_parser("migrate-tenants", help="Lleva todas las bases de tenant READY a la ultima migracion")
 
     args = parser.parse_args()
     handlers = {
@@ -217,6 +252,7 @@ def main() -> int:
         "promote-user": cmd_promote_user,
         "disable-user": cmd_disable_user,
         "sweep-expired-demos": cmd_sweep_expired_demos,
+        "migrate-tenants": cmd_migrate_tenants,
     }
     return handlers[args.command](args)
 

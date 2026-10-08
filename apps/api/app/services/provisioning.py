@@ -127,6 +127,11 @@ def force_drop_tenant_database_for_tests(identifier: str) -> None:
     membership transitoriamente -- igual que haria un futuro flujo real de
     deprovisioning -- y borra."""
     assert_safe_identifier(identifier)
+    # Los pools de tenant (p.ej. el que abrio la migracion de esquema)
+    # mantienen conexiones vivas que impedirian el DROP DATABASE.
+    from app.services.tenant_db_manager import tenant_db_manager
+
+    tenant_db_manager.dispose_all()
     with _provisioner_engine.connect() as conn:
         raw_conn = conn.connection.driver_connection
         with raw_conn.cursor() as cur:
@@ -165,6 +170,14 @@ def provision_tenant_database(
         .one_or_none()
     )
     if existing is not None and existing.status == ProvisioningStatus.READY:
+        # Puede ser una base creada antes de que existieran migraciones de
+        # tenant (schema_version "0"): se lleva a head igual, es idempotente.
+        from app.services.tenant_migrations import TenantMigrationError, migrate_tenant_database
+
+        try:
+            migrate_tenant_database(control_db, existing)
+        except TenantMigrationError as exc:
+            raise ProvisioningError("No se pudo actualizar el esquema de la base.") from exc
         return existing
 
     identifier = build_tenant_database_identifier(tenant_id, system_id, environment)
@@ -212,5 +225,17 @@ def provision_tenant_database(
         tenant_db.last_error = f"{type(exc).__name__} al registrar credencial."
         control_db.commit()
         raise ProvisioningError("No se pudo registrar la credencial de la base.") from exc
+
+    # Una base sin esquema no sirve para nada: se migra a head antes de
+    # devolverla. Si falla, queda FAILED (nunca READY con esquema a medias)
+    # y el caller no activa el entitlement.
+    from app.services.tenant_migrations import TenantMigrationError, migrate_tenant_database
+
+    try:
+        migrate_tenant_database(control_db, tenant_db)
+    except TenantMigrationError as exc:
+        tenant_db.status = ProvisioningStatus.FAILED
+        control_db.commit()
+        raise ProvisioningError("No se pudo crear el esquema de la base.") from exc
 
     return tenant_db

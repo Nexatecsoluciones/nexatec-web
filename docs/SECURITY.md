@@ -176,3 +176,20 @@ en `docs/PAYMENTS.md`. Resumen de seguridad:
   (`CREATEDB`+`CREATEROLE`); su superficie de ataque es la API interna
   que lo usa, no un endpoint publico -- pero sigue siendo el punto de
   mayor cuidado.
+
+
+## Acceso de roles de tenant a otras bases (2026-10-08)
+
+Detectado por `tests/test_tenant_schema.py::test_tenant_role_cannot_reach_control_plane`:
+PostgreSQL otorga `CONNECT` y `TEMPORARY` a `PUBLIC` en toda base nueva, así
+que el rol de cualquier tenant (`nxt_*`) podía **conectarse** (no leer
+tablas) a `nexatec_control`, `hesed_ot` y `postgres`.
+
+- `nexatec_control`: corregido con la migración `673e954bbe2a`
+  (`REVOKE CONNECT, TEMPORARY ... FROM PUBLIC`; el dueño `nexatec_app`
+  conserva su acceso).
+- Bases de tenant: ya tenían `REVOKE ALL ... FROM PUBLIC` desde el provisioning.
+- `hesed_ot` y `postgres`: **no se tocaron** (son compartidas con
+  `hesed-ot-sistema`). Recomendación para el responsable de ese sistema,
+  después de confirmar que `hesed_app` es el único rol que la usa:
+  `REVOKE CONNECT, TEMPORARY ON DATABASE hesed_ot FROM PUBLIC;`
