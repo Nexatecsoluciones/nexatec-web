@@ -1,4 +1,5 @@
-"""Email transaccional via Brevo (API v3, https://api.brevo.com/v3/smtp/email).
+"""Email transaccional via Brevo: API v3 (BREVO_API_KEY) o, si no hay API
+key, el relay SMTP (NEXATEC_SMTP_*, STARTTLS obligatorio).
 
 Mismo patron que Bancard y Cloudflare: sin BREVO_API_KEY no se envia nada,
 se devuelve False y el flujo que lo llamo sigue (best-effort). Nunca se
@@ -10,6 +11,10 @@ dominio -- si no, Brevo rechaza o el correo cae en spam."""
 
 import html
 import logging
+import smtplib
+import ssl
+from email.message import EmailMessage
+from email.utils import formataddr, make_msgid
 
 import httpx
 
@@ -21,9 +26,42 @@ _BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 _TIMEOUT = 10.0
 
 
+def _use_smtp() -> bool:
+    s = get_settings()
+    return not s.brevo_api_key and bool(s.smtp_host and s.smtp_user and s.smtp_password)
+
+
 def is_configured() -> bool:
     s = get_settings()
-    return bool(s.brevo_api_key and s.email_from_address)
+    return bool(s.email_from_address and (s.brevo_api_key or _use_smtp()))
+
+
+def _smtp() -> smtplib.SMTP:
+    s = get_settings()
+    return smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=_TIMEOUT)
+
+
+def _send_smtp(to_email: str, subject: str, html_body: str, text_body: str, tag: str) -> bool:
+    s = get_settings()
+    msg = EmailMessage()
+    msg["From"] = formataddr((s.email_from_name, s.email_from_address))
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg["Message-ID"] = make_msgid(domain=s.email_from_address.rsplit("@", 1)[-1])
+    msg["X-Mailin-Tag"] = tag  # tag de Brevo para estadisticas
+    msg.set_content(text_body)
+    msg.add_alternative(html_body, subtype="html")
+    try:
+        with _smtp() as smtp:
+            smtp.starttls(context=ssl.create_default_context())
+            smtp.login(s.smtp_user, s.smtp_password)
+            smtp.send_message(msg)
+        return True
+    except (smtplib.SMTPException, OSError) as exc:
+        # Ni el mensaje ni la respuesta del servidor van al log: pueden
+        # repetir el destinatario o partes del contenido.
+        logger.warning("email_failed tag=%s transport=smtp error=%s", tag, type(exc).__name__)
+        return False
 
 
 def _client() -> httpx.Client:
@@ -37,6 +75,8 @@ def send(to_email: str, subject: str, html_body: str, text_body: str, tag: str) 
     if not is_configured():
         logger.info("email_not_sent reason=not_configured tag=%s", tag)
         return False
+    if _use_smtp():
+        return _send_smtp(to_email, subject, html_body, text_body, tag)
     payload = {
         "sender": {"email": s.email_from_address, "name": s.email_from_name},
         "to": [{"email": to_email}],

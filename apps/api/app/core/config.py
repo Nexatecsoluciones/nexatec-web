@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     # Email transaccional (Brevo). Vacio = no se envian emails (best-effort,
     # ver app/services/email.py). El remitente debe estar verificado en Brevo.
     brevo_api_key: str = Field(default="", alias="BREVO_API_KEY")
+    # Alternativa a la API: relay SMTP de Brevo (smtp-relay.brevo.com:587,
+    # STARTTLS). Se usa solo si no hay BREVO_API_KEY.
+    smtp_host: str = Field(default="", alias="NEXATEC_SMTP_HOST")
+    smtp_port: int = Field(default=587, alias="NEXATEC_SMTP_PORT")
+    smtp_user: str = Field(default="", alias="NEXATEC_SMTP_USER")
+    smtp_password: str = Field(default="", alias="NEXATEC_SMTP_PASSWORD")
     email_from_address: str = Field(default="", alias="NEXATEC_EMAIL_FROM")
     email_from_name: str = Field(default="NEXATEC", alias="NEXATEC_EMAIL_FROM_NAME")
     # URL publica de la web, para armar enlaces en los emails.

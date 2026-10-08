@@ -175,3 +175,66 @@ def test_reminder_stays_pending_while_brevo_not_configured(monkeypatch, demo_ten
     sweep_expired_demos(demo_tenant["db"])
     demo_tenant["db"].refresh(demo_tenant["demo"])
     assert demo_tenant["demo"].reminder_3d_sent_at is None
+
+
+class _FakeSMTP:
+    def __init__(self, sent, fail=None):
+        self.sent, self.fail, self.steps = sent, fail, []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def starttls(self, context=None):
+        self.steps.append("starttls")
+
+    def login(self, user, password):
+        if self.fail:
+            raise self.fail
+        assert self.steps == ["starttls"], "login antes de TLS"
+        self.steps.append("login")
+
+    def send_message(self, msg):
+        self.sent.append(msg)
+
+
+@pytest.fixture()
+def smtp(monkeypatch):
+    s = get_settings()
+    monkeypatch.setattr(s, "brevo_api_key", "")
+    monkeypatch.setattr(s, "smtp_host", "smtp-relay.example")
+    monkeypatch.setattr(s, "smtp_user", "user@example.com")
+    monkeypatch.setattr(s, "smtp_password", "SMTP-PASS-SECRETA")
+    monkeypatch.setattr(s, "email_from_address", "no-reply@nexatecpy.com")
+    monkeypatch.setattr(s, "public_base_url", "https://staging.nexatecpy.com")
+    sent: list = []
+    state = {"fail": None}
+    monkeypatch.setattr(email_service, "_smtp", lambda: _FakeSMTP(sent, state["fail"]))
+    return {"sent": sent, "state": state}
+
+
+def test_smtp_transport_sends_multipart(smtp, caplog):
+    caplog.set_level(logging.DEBUG)
+    assert email_service.send_password_reset("a@example.com", "TOKEN-SMTP-1", 30) is True
+    msg = smtp["sent"][0]
+    assert msg["To"] == "a@example.com"
+    assert "no-reply@nexatecpy.com" in msg["From"]
+    assert msg["X-Mailin-Tag"] == "password_reset"
+    assert {p.get_content_type() for p in msg.iter_parts()} == {"text/plain", "text/html"}
+    assert "TOKEN-SMTP-1" not in caplog.text
+
+
+def test_smtp_failure_is_best_effort(smtp, caplog):
+    import smtplib
+    smtp["state"]["fail"] = smtplib.SMTPAuthenticationError(535, b"bad SMTP-PASS-SECRETA")
+    assert email_service.send_password_reset("a@example.com", "TOKEN-SMTP-2", 30) is False
+    assert "SMTP-PASS-SECRETA" not in caplog.text and "TOKEN-SMTP-2" not in caplog.text
+
+
+def test_api_key_takes_precedence_over_smtp(brevo, monkeypatch):
+    monkeypatch.setattr(get_settings(), "smtp_host", "smtp-relay.example")
+    monkeypatch.setattr(email_service, "_smtp", lambda: (_ for _ in ()).throw(AssertionError("no SMTP")))
+    assert email_service.send_password_reset("a@example.com", "tok", 30) is True
+    assert len(brevo["calls"]) == 1
