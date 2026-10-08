@@ -9,7 +9,7 @@ Estado actual: **staging**, en el mismo servidor OCI que aloja `hesed-ot-sistema
 Usuario
   |  HTTPS
   v
-staging.nexatecpy.com  (Cloudflare)
+nexatecpy.com  (Cloudflare)
   |  Cloudflare Access (autenticacion previa)
   v
 Cloudflare Tunnel (cloudflared, conexion saliente desde el servidor)
@@ -78,7 +78,7 @@ seguridad (cookies `Secure`, si se puede omitir Turnstile, etc -- ver
 
 ## Same-origin BFF (`/api/*`)
 
-El navegador solo conoce `https://staging.nexatecpy.com/api/...`. Nunca ve
+El navegador solo conoce `https://nexatecpy.com/api/...`. Nunca ve
 `127.0.0.1:4301`. El proxy vive en
 `apps/web/src/app/api/[...path]/route.ts`: reenvia server-side hacia
 `NEXATEC_INTERNAL_API_URL` (variable server-only, nunca `NEXT_PUBLIC_`).

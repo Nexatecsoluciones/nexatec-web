@@ -2,12 +2,12 @@
 
 ## Estado actual (en vivo)
 
-- URL: **https://staging.nexatecpy.com** -- ONLINE.
+- URL: **https://nexatecpy.com** -- ONLINE.
 - Tunnel: `nexatec-platform` (ID `dd49f962-6860-4db8-8d6a-894005746b01`) --
   HEALTHY, 1 replica activa en `servidor-aplicaciones` (este servidor).
-- Ruta: `staging.nexatecpy.com` -> `http://127.0.0.1:4302` (HTTP, no HTTPS
+- Ruta: `nexatecpy.com` -> `http://127.0.0.1:4302` (HTTP, no HTTPS
   -- ver incidente 3 mas abajo).
-- DNS: CNAME `staging.nexatecpy.com` -> `dd49f962-....cfargotunnel.com`,
+- DNS: CNAME `nexatecpy.com` -> `dd49f962-....cfargotunnel.com`,
   Proxied. Verificado con `dig` contra 1.1.1.1, 8.8.8.8 y 9.9.9.9.
 - **Cloudflare Access: NO CONFIGURADO.** El sitio esta publico en
   Internet ahora mismo. Se intento configurar (Zero Trust -> Access ->
@@ -32,7 +32,7 @@
    la cuenta de Cloudflare). Queda documentado como decision consciente,
    no como omision.
 2. **Ruta creada por error sobre el apex `nexatecpy.com`** en vez de
-   `staging.nexatecpy.com` (confusion en el campo de hostname del
+   `nexatecpy.com` (confusion en el campo de hostname del
    formulario "Add route"). Se detecto con `dig` inmediatamente, y se
    corrigio editando el registro DNS (cambiar `Name` de `nexatecpy.com` a
    `staging`) -- confirmado que el apex volvio a no resolver.
@@ -131,7 +131,7 @@ instalacion vos mismo en una terminal de este servidor.
 6. URL: `127.0.0.1:4302`
 7. Guardar.
 
-Esto crea automaticamente el DNS CNAME de `staging.nexatecpy.com` hacia el
+Esto crea automaticamente el DNS CNAME de `nexatecpy.com` hacia el
 tunnel (proxied, naranja) -- no hace falta tocar la pagina de DNS por
 separado. **No toques ninguna otra ruta que ya exista en este tunnel** (si
 el tunnel es nuevo, no debería haber ninguna).
@@ -142,7 +142,7 @@ el tunnel es nuevo, no debería haber ninguna).
 2. Tipo: **Self-hosted**.
 3. Application name: `NEXATEC Staging`.
 4. Session duration: la que prefieras (ej. 24h).
-5. Application domain: `staging.nexatecpy.com` (sin path, aplica a todo).
+5. Application domain: `nexatecpy.com` (sin path, aplica a todo).
 6. Siguiente: **Policies** → **Add a policy**.
    - Policy name: `Solo NEXATEC`.
    - Action: **Allow**.
@@ -152,7 +152,7 @@ el tunnel es nuevo, no debería haber ninguna).
      decirmelo.
    - Si Cloudflare te ofrece "One-time PIN" como metodo de login para esos
      emails, es valido usarlo para este caso (staging interno).
-7. Guardar. Cloudflare Access queda delante de TODO `staging.nexatecpy.com`,
+7. Guardar. Cloudflare Access queda delante de TODO `nexatecpy.com`,
    incluyendo `/api/*` -- es una capa adicional, no reemplaza el login de
    NEXATEC (`/login`, RBAC), que sigue aplicando normalmente despues de
    pasar Access.
@@ -184,7 +184,7 @@ Para pasar a claves reales (cuando quieras dejar de depender de las de
 prueba, o antes de exponer staging sin Cloudflare Access):
 
 1. Zero Trust dashboard → **Turnstile** → **Add site**.
-2. Domain: `staging.nexatecpy.com` (agregar tambien `nexatecpy.com` cuando
+2. Domain: `nexatecpy.com` (agregar tambien `nexatecpy.com` cuando
    exista produccion).
 3. Widget mode: Managed (recomendado).
 4. Copia la **Site Key** → va en `apps/web/.env.production.local` como

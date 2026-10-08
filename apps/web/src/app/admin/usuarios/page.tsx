@@ -82,9 +82,11 @@ export default function AdminUsuariosPage() {
                   <td className="px-4 py-2.5"><Badge>{u.role}</Badge></td>
                   <td className="px-4 py-2.5">{u.is_active ? "Activo" : "Deshabilitado"}</td>
                   <td className="px-4 py-2.5 text-right">
-                    <Button variant="secondary" className="min-h-[32px] px-3 text-xs" onClick={() => onToggle(u)}>
-                      {u.is_active ? "Deshabilitar" : "Reactivar"}
-                    </Button>
+                    {u.email === user.email ? <span className="text-xs text-nx-muted">Vos</span> : (
+                      <Button variant="secondary" className="min-h-[32px] px-3 text-xs" onClick={() => onToggle(u)}>
+                        {u.is_active ? "Deshabilitar" : "Reactivar"}
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

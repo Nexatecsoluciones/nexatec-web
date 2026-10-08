@@ -111,7 +111,7 @@ existencia; commitearlos idénticos evita ese ruido.
 ## 6. Staging y same-origin BFF
 
 Detalle completo en `docs/DEPLOYMENT.md` y `docs/CLOUDFLARE.md`. Resumen de
-la decision: el navegador solo conoce `https://staging.nexatecpy.com`;
+la decision: el navegador solo conoce `https://nexatecpy.com`;
 nunca `127.0.0.1:4301`/`4302`. Se evaluaron tres opciones para esto:
 
 1. **`rewrites()` de `next.config.ts`** -- simple, pero opaco: no da

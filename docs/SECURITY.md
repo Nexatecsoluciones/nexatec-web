@@ -15,7 +15,7 @@ final de cada fase en el historial de commits y en `docs/RUNBOOK.md`.
   `NEXATEC_ENV` es `staging` o `production` (ver `app/core/config.py`,
   propiedad `is_production` -- el nombre quedo de FASE 2, pero hoy cubre
   ambos). **No** se usa `Domain=.nexatecpy.com`: la cookie es host-only
-  para `staging.nexatecpy.com`, que es lo que corresponde mientras
+  para `nexatecpy.com`, que es lo que corresponde mientras
   produccion no exista en el mismo dominio con necesidad real de
   compartir sesion entre subdominios.
 - Bloqueo progresivo ante fuerza bruta (intentos fallidos consecutivos).
@@ -124,13 +124,13 @@ en `docs/PAYMENTS.md`. Resumen de seguridad:
 ## Same-origin / exposicion de red (FASE staging)
 
 - El navegador nunca conoce `127.0.0.1:4301` ni `4302`: todo pasa por
-  `https://staging.nexatecpy.com`, con `/api/*` reenviado server-side por
+  `https://nexatecpy.com`, con `/api/*` reenviado server-side por
   el BFF de Next.js (`apps/web/src/app/api/[...path]/route.ts`).
 - `4301` y `4302` bindeados solo a `127.0.0.1` -- verificado con `ss -lntp`
   antes y despues de cada cambio.
 - Cloudflare Tunnel es conexion saliente; no se abrio ningun puerto en
   `firewalld` ni en Security Lists/NSG de OCI.
-- Cloudflare Access protege TODO `staging.nexatecpy.com` (incluido
+- Cloudflare Access protege TODO `nexatecpy.com` (incluido
   `/api/*`) como capa adicional -- no reemplaza el login/RBAC de NEXATEC.
 - `CORS_ALLOWED_ORIGINS` nunca `*`; con el BFF same-origin, CORS pasa a
   ser defensa en profundidad (el trafico normal ya no depende de el).
@@ -161,7 +161,7 @@ en `docs/PAYMENTS.md`. Resumen de seguridad:
 
 ## Riesgos pendientes (honesto, no exhaustivo)
 
-- **`https://staging.nexatecpy.com` esta publico en Internet ahora
+- **`https://nexatecpy.com` esta publico en Internet ahora
   mismo** -- Cloudflare Access todavia no esta configurado (decision
   consciente de posponerlo, ver `docs/CLOUDFLARE.md`). Cualquiera con la
   URL puede ver la app, incluida `/login` (aunque no puede entrar sin

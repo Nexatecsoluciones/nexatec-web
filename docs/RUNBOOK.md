@@ -66,7 +66,7 @@ curl -s http://127.0.0.1:4302/api/health   # BFF -> API (mismo resultado que el 
 Publico (una vez el Tunnel + Access esten activos):
 
 ```bash
-curl -sI https://staging.nexatecpy.com          # Cloudflare Access deberia interceptar (redirect a login de Access)
+curl -sI https://nexatecpy.com          # Cloudflare Access deberia interceptar (redirect a login de Access)
 ```
 
 ## Comprobar el Tunnel

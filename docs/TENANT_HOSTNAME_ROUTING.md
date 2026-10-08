@@ -76,7 +76,7 @@ antes de asumir que ya hay una experiencia de usuario por subdominio.
   crea (si falta) el registro DNS CNAME `hostname -> <tunnel_id>.cfargotunnel.com`
   (proxied) y agrega una regla al ingress del Tunnel `nexatec-platform`
   apuntando a `CLOUDFLARE_TUNNEL_SERVICE` (`http://127.0.0.1:4302`, el
-  mismo Next.js que ya sirve `staging.nexatecpy.com`). Idempotente: si ya
+  mismo Next.js que ya sirve `nexatecpy.com`). Idempotente: si ya
   está todo como se espera, no hace ningún cambio; si encuentra un DNS
   record apuntando a otro lado, **no lo pisa**, tira error. La regla
   catch-all del tunnel (`http_status:404`) siempre queda última.
