@@ -88,6 +88,7 @@ async def confirm_reset(payload: ConfirmResetPayload, db: Session = Depends(get_
 
     try:
         user.password_hash = hash_password(payload.new_password)
+        user.must_change_password = False
     except WeakPasswordError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 

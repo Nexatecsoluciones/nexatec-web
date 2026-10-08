@@ -193,3 +193,48 @@ tablas) a `nexatec_control`, `hesed_ot` y `postgres`.
   `hesed-ot-sistema`). Recomendación para el responsable de ese sistema,
   después de confirmar que `hesed_app` es el único rol que la usa:
   `REVOKE CONNECT, TEMPORARY ON DATABASE hesed_ot FROM PUBLIC;`
+
+## Login por etapas y MFA (2026-10-08)
+
+- Tras la contraseña, la sesión puede nacer **restringida**
+  (`user_sessions.stage`): `MFA` (falta el código TOTP) o
+  `PASSWORD_CHANGE` (cambio obligatorio). Con una sesión restringida
+  `get_current_user` responde 401 `STEP_REQUIRED:<etapa>` en todo salvo
+  `/api/auth/mfa/verify`, `/api/auth/change-password` y `/api/auth/logout`.
+  Orden: primero MFA (prueba de posesión), después el cambio de contraseña.
+- TOTP RFC 6238 propio (`app/security/totp.py`, validado contra los
+  vectores del RFC), secreto **cifrado** con Fernet, anti-reuso del mismo
+  código (`users.mfa_last_step`), 5 códigos errados revocan la sesión
+  pendiente.
+- `NEXATEC_REQUIRE_ADMIN_MFA` (true por defecto, y explícito en
+  `/etc/nexatec/api-staging.env`): el personal de NEXATEC no usa el Control
+  Center sin MFA (403 `MFA_REQUIRED`, la interfaz lleva a
+  `/admin/seguridad`) y no puede desactivárselo.
+- El superadmin creado con `python -m app.cli create-superadmin` queda con
+  cambio de contraseña obligatorio. Teléfono perdido:
+  `python -m app.cli reset-mfa <email>` (solo desde la terminal del servidor).
+- Probado de punta a punta en navegador real (`apps/web/e2e/admin-first-login.e2e.mjs`).
+
+## Riesgo encontrado: staging lee `apps/api/.env` como respaldo
+
+`app/core/config.py` usa `env_file=".env"` y el servicio de staging corre
+con `WorkingDirectory=apps/api`: **cualquier variable que
+`/etc/nexatec/api-staging.env` no defina se toma del `.env` de
+desarrollo**. Esto hizo que un ajuste pensado solo para tests
+(`NEXATEC_REQUIRE_ADMIN_MFA=false`) desactivara el MFA en staging; lo
+detectó la prueba E2E y se corrigió (el ajuste de tests vive ahora en
+`tests/conftest.py`, y staging define el valor explícitamente).
+
+Regla: nunca poner en `apps/api/.env` un valor que debilite la seguridad;
+toda variable sensible de staging/producción debe estar explícita en su
+EnvironmentFile. Pendiente recomendado: que staging/producción no lean
+ningún `.env` (p.ej. `env_file` condicionado a `NEXATEC_ENV=development`).
+
+## Los tests ya no usan la base de staging
+
+Hasta hoy la suite corría contra `nexatec_control`, la misma base del
+Control Center de staging: un test que fallaba a mitad dejaba datos
+visibles (se encontraron y borraron 2 tenants, 3 usuarios y 2 sistemas de
+prueba). Ahora `tests/conftest.py` fuerza `nexatec_control_test` (mismo
+dueño `nexatec_app`, sin acceso público), la migra a head al arrancar, y
+aborta si detecta que apunta a `nexatec_control`.

@@ -2,9 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { ChangePasswordForm } from "@/components/security";
 import { Button, Card, TopNav } from "@/components/ui";
 import { useTurnstileToken } from "@/components/turnstile";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type LoginStage, type Role } from "@/lib/api";
+
+const ADMIN = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "BILLING"];
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
@@ -14,6 +17,33 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Pasos posteriores a la contrasena: la sesion queda restringida en el
+  // servidor hasta completarlos, no alcanza con saltearlos en el navegador.
+  const [stage, setStage] = useState<LoginStage>("FULL");
+  const [role, setRole] = useState<Role | null>(null);
+  const [code, setCode] = useState("");
+
+  function proceed(next: LoginStage, r: Role | null = role) {
+    if (next === "FULL") router.push(r && ADMIN.includes(r) ? "/admin" : "/portal");
+    else setStage(next);
+  }
+
+  async function onMfa(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      proceed((await api.mfaVerify(code)).next);
+    } catch (err) {
+      setCode("");
+      if (err instanceof ApiError && err.status === 401) {
+        setStage("FULL");
+        setError("Demasiados codigos incorrectos. Volve a ingresar tu contrasena.");
+      } else setError("Codigo incorrecto. Revisa la hora de tu telefono.");
+    } finally {
+      setLoading(false);
+    }
+  }
   const { token: turnstileToken, widget: turnstileWidget, reset: resetTurnstile } =
     useTurnstileToken(TURNSTILE_SITE_KEY);
 
@@ -31,9 +61,10 @@ export default function LoginPage() {
       // Sin site key configurada (solo puede pasar en development, ver
       // app/security/turnstile.py) no hay widget y se envia vacio: la API
       // decide si eso es aceptable segun el entorno, nunca el cliente.
-      const { role } = await api.login(email, password, turnstileToken);
-      const adminRoles = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "BILLING"];
-      router.push(adminRoles.includes(role) ? "/admin" : "/portal");
+      const res = await api.login(email, password, turnstileToken);
+      setRole(res.role);
+      setPassword("");
+      proceed(res.next, res.role);
     } catch (err) {
       resetTurnstile();
       if (err instanceof ApiError) {
@@ -54,6 +85,24 @@ export default function LoginPage() {
     <div className="flex flex-1 flex-col">
       <TopNav activePath="/login" />
       <main className="mx-auto flex w-full max-w-md flex-1 items-center px-5 py-16">
+        {stage === "MFA" ? (
+          <Card className="w-full p-8">
+            <h1 className="text-2xl font-extrabold">Verificacion en dos pasos</h1>
+            <p className="mt-1 text-sm text-nx-muted">Ingresa el codigo de 6 digitos de tu app autenticadora.</p>
+            <form onSubmit={onMfa} className="mt-6 flex flex-col gap-4">
+              <input autoFocus inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required autoComplete="one-time-code"
+                value={code} onChange={(e) => setCode(e.target.value)}
+                className="rounded-xl border border-nx-line bg-white/5 px-4 py-3 text-center text-2xl tracking-[0.4em] text-nx-text outline-none focus:border-nx-accent" />
+              {error && <p className="text-sm font-semibold text-red-300">{error}</p>}
+              <Button type="submit" disabled={loading} className="w-full">Verificar</Button>
+            </form>
+          </Card>
+        ) : stage === "PASSWORD_CHANGE" ? (
+          <Card className="w-full p-8">
+            <p className="mb-4 text-sm text-nx-muted">Por seguridad tenes que elegir una contrasena nueva antes de continuar.</p>
+            <ChangePasswordForm title="Elegi una contrasena nueva" onDone={() => proceed("FULL")} />
+          </Card>
+        ) : (
         <Card className="w-full p-8">
           <h1 className="text-2xl font-extrabold">Ingresar</h1>
           <p className="mt-1 text-sm text-nx-muted">Portal de clientes NEXATEC.</p>
@@ -91,6 +140,7 @@ export default function LoginPage() {
             </Button>
           </form>
         </Card>
+        )}
       </main>
     </div>
   );

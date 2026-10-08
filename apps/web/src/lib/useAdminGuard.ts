@@ -1,11 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ADMIN_ROLES, api, ApiError, type CurrentUser, type Role } from "@/lib/api";
 
 export function useAdminGuard(requireRole?: Role) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -17,6 +18,9 @@ export function useAdminGuard(requireRole?: Role) {
         setUser(me);
         const allowed = requireRole ? me.role === requireRole : ADMIN_ROLES.includes(me.role);
         if (!allowed) setForbidden(true);
+        // El servidor rechaza el Control Center sin MFA (MFA_REQUIRED); se
+        // lleva directo a configurarlo en vez de mostrar pantallas con error.
+        else if (me.mfa_required && !me.mfa_enabled && pathname !== "/admin/seguridad") router.replace("/admin/seguridad");
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) router.replace("/login");

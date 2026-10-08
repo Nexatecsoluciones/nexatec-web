@@ -76,9 +76,12 @@ export default function PortalPage() {
             <h1 className="text-3xl font-extrabold">Mis sistemas</h1>
             <p className="mt-1 text-nx-muted">{user.email}</p>
           </div>
-          <Button variant="secondary" onClick={onLogout}>
-            Cerrar sesion
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => router.push("/cuenta")}>Mi cuenta</Button>
+            <Button variant="secondary" onClick={onLogout}>
+              Cerrar sesion
+            </Button>
+          </div>
         </div>
 
         {actionMessage && (

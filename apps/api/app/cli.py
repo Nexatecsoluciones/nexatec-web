@@ -9,6 +9,7 @@ Uso:
     python -m app.cli list-superadmins
     python -m app.cli promote-user <email>
     python -m app.cli disable-user <email>
+    python -m app.cli reset-mfa <email>
     python -m app.cli sweep-expired-demos
     python -m app.cli migrate-tenants
 """
@@ -92,6 +93,9 @@ def cmd_create_superadmin(_args: argparse.Namespace) -> int:
             password_hash=password_hash,
             role=Role.SUPER_ADMIN,
             is_active=True,
+            # Primer acceso: cambio obligatorio + configurar MFA (exigido en
+            # el Control Center por NEXATEC_REQUIRE_ADMIN_MFA).
+            must_change_password=True,
         )
         db.add(user)
         db.flush()
@@ -103,6 +107,7 @@ def cmd_create_superadmin(_args: argparse.Namespace) -> int:
 
         print()
         print("SUPER_ADMIN creado correctamente")
+        print("En el primer ingreso se pedira cambiar la contrasena y configurar MFA (app autenticadora).")
         print(f"Email: {user.email}")
         print(f"User ID: {user.id}")
         return 0
@@ -179,6 +184,32 @@ def cmd_disable_user(args: argparse.Namespace) -> int:
         db.close()
 
 
+def cmd_reset_mfa(args: argparse.Namespace) -> int:
+    """Recuperacion si se perdio el telefono: solo desde la terminal del
+    servidor (la misma raiz de confianza que crea el superadmin)."""
+    db = SessionLocal()
+    try:
+        user = db.execute(select(User).where(User.email == args.email.lower())).scalar_one_or_none()
+        if user is None:
+            print(f"No existe una cuenta con el email {args.email}.")
+            return 1
+        confirm = input(f"Desactivar MFA de {user.email} y cerrar todas sus sesiones? escribi 'si': ").strip().lower()
+        if confirm != "si":
+            print("Cancelado.")
+            return 1
+        user.mfa_enabled = False
+        user.mfa_totp_secret = None
+        user.mfa_last_step = None
+        revoke_all_sessions_for_user(db, user.id)
+        log_audit(db, actor_user_id=user.id, tenant_id=user.tenant_id, action="MFA_RESET",
+                  resource=f"user:{user.id}", metadata={"method": "cli"})
+        db.commit()
+        print(f"OK. MFA desactivado para {user.email}; al ingresar debera configurarlo de nuevo.")
+        return 0
+    finally:
+        db.close()
+
+
 def cmd_sweep_expired_demos(_args: argparse.Namespace) -> int:
     """Pensado para correr periodicamente via systemd timer (ver
     scripts/sweep-expired-demos.sh y docs/RUNBOOK.md) -- no reemplaza el
@@ -242,6 +273,9 @@ def main() -> int:
     p_disable = sub.add_parser("disable-user", help="Deshabilita un usuario y revoca sus sesiones")
     p_disable.add_argument("email")
 
+    p_mfa = sub.add_parser("reset-mfa", help="Desactiva el MFA de un usuario (telefono perdido)")
+    p_mfa.add_argument("email")
+
     sub.add_parser("sweep-expired-demos", help="Marca EXPIRED los entitlements de demo vencidos")
     sub.add_parser("migrate-tenants", help="Lleva todas las bases de tenant READY a la ultima migracion")
 
@@ -251,6 +285,7 @@ def main() -> int:
         "list-superadmins": cmd_list_superadmins,
         "promote-user": cmd_promote_user,
         "disable-user": cmd_disable_user,
+        "reset-mfa": cmd_reset_mfa,
         "sweep-expired-demos": cmd_sweep_expired_demos,
         "migrate-tenants": cmd_migrate_tenants,
     }

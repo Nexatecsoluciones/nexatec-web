@@ -55,7 +55,13 @@ export interface CurrentUser {
   email: string;
   role: Role;
   tenant_id: string | null;
+  mfa_enabled: boolean;
+  mfa_required: boolean;
 }
+
+// Etapa de la sesion tras el login: FULL = lista para usar; MFA o
+// PASSWORD_CHANGE = restringida hasta completar ese paso.
+export type LoginStage = "FULL" | "MFA" | "PASSWORD_CHANGE";
 
 export interface ConfigFieldDef {
   key: string;
@@ -166,10 +172,20 @@ export interface MySystemOut {
 export const api = {
   me: () => request<CurrentUser>("/api/auth/me"),
   login: (email: string, password: string, turnstileToken: string) =>
-    request<{ email: string; role: Role }>("/api/auth/login", {
+    request<{ email: string; role: Role; next: LoginStage }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
     }),
+  mfaVerify: (code: string) =>
+    request<{ next: LoginStage }>("/api/auth/mfa/verify", { method: "POST", body: JSON.stringify({ code }) }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ next: LoginStage }>("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
+  mfaSetup: () => request<{ secret: string; otpauth_uri: string }>("/api/auth/mfa/setup", { method: "POST" }),
+  mfaEnable: (code: string) =>
+    request<{ mfa_enabled: boolean }>("/api/auth/mfa/enable", { method: "POST", body: JSON.stringify({ code }) }),
   logout: () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
   listPublicSystems: () => request<SystemOut[]>("/api/systems"),
   listAllSystemsAdmin: () => request<SystemOut[]>("/api/admin/systems"),

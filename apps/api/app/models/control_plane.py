@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Enum,
@@ -83,7 +84,14 @@ class User(Base):
     role: Mapped[Role] = mapped_column(Enum(Role, name="user_role"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    mfa_totp_secret: Mapped[str | None] = mapped_column(String(64))
+    # Secreto TOTP CIFRADO (Fernet, app/core/crypto.py), nunca en claro.
+    mfa_totp_secret: Mapped[str | None] = mapped_column(Text)
+    # Ultimo paso de tiempo TOTP aceptado: impide reusar el mismo codigo
+    # (dentro de su ventana de 30s) en otro login.
+    mfa_last_step: Mapped[int | None] = mapped_column(BigInteger)
+    # Forzar cambio de contrasena en el proximo login (p.ej. superadmin
+    # creado por CLI, o contrasena dada por un tercero).
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     failed_login_attempts: Mapped[int] = mapped_column(default=0, nullable=False)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -117,6 +125,10 @@ class UserSession(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # FULL = sesion normal. PASSWORD_CHANGE / MFA = sesion restringida: solo
+    # sirve para completar ese paso (ver app/security/session_auth.py).
+    stage: Mapped[str] = mapped_column(String(20), nullable=False, default="FULL", server_default="FULL")
+    mfa_failed_attempts: Mapped[int] = mapped_column(nullable=False, default=0, server_default="0")
 
     user: Mapped[User] = relationship(back_populates="sessions")
 

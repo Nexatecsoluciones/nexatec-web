@@ -1,5 +1,7 @@
 from fastapi import Depends, HTTPException, status
 
+from app.core.config import get_settings
+
 from app.security.roles import ADMIN_ROLES, Role
 from app.security.session_auth import CurrentUser, get_current_user
 
@@ -17,6 +19,11 @@ def require_roles(*allowed: Role):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tiene permisos para esta accion.",
             )
+        # El personal de NEXATEC no opera el Control Center sin MFA. El
+        # detalle es un codigo estable para que la interfaz lleve a la
+        # pantalla de configuracion.
+        if user.role in ADMIN_ROLES and get_settings().require_admin_mfa and not user.mfa_enabled:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="MFA_REQUIRED")
         return user
 
     return _check

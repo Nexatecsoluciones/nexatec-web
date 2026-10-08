@@ -72,7 +72,7 @@ def test_full_login_session_logout_cycle(client, test_user):
         json={"email": TEST_EMAIL, "password": TEST_PASSWORD, "turnstile_token": "dev"},
     )
     assert resp.status_code == 200
-    assert resp.json() == {"email": TEST_EMAIL, "role": "CLIENT_USER"}
+    assert resp.json() == {"email": TEST_EMAIL, "role": "CLIENT_USER", "next": "FULL"}
     assert "nexatec_session" in resp.cookies
 
     me = client.get("/api/auth/me")

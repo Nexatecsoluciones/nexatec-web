@@ -99,6 +99,7 @@ const ADMIN_NAV = [
   { href: "/admin/pagos", label: "Pagos" },
   { href: "/admin/jobs", label: "Jobs" },
   { href: "/admin/estado", label: "Estado" },
+  { href: "/admin/seguridad", label: "Seguridad" },
 ];
 
 export function AdminLayout({

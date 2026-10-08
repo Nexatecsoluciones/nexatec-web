@@ -2,6 +2,8 @@
 
     python scripts/e2e_tenant.py create <archivo.json>   # demo con empresa ficticia + usuario CLIENT_ADMIN
     python scripts/e2e_tenant.py destroy <archivo.json>  # borra base fisica y todas sus filas
+    python scripts/e2e_tenant.py create-admin <archivo.json>   # SUPER_ADMIN de prueba (primer ingreso)
+    python scripts/e2e_tenant.py destroy-admin <archivo.json>
 
 No pasa por el endpoint de demos, asi que NO crea subdominios ni toca
 Cloudflare. `destroy` se niega a borrar cualquier tenant cuyo slug no
@@ -87,5 +89,39 @@ def destroy(path: str) -> None:
     print("tenant de prueba eliminado")
 
 
+def create_admin(path: str) -> None:
+    """SUPER_ADMIN descartable en estado de PRIMER INGRESO (cambio de
+    contrasena obligatorio, sin MFA): el mismo estado en que queda el
+    superadmin real creado por la CLI."""
+    db = SessionLocal()
+    password = secrets.token_urlsafe(18) + "A1"
+    user = User(email=f"e2e-admin-{uuid.uuid4().hex[:8]}@example.com", full_name="E2E Admin",
+                password_hash=hash_password(password), role=Role.SUPER_ADMIN, must_change_password=True)
+    db.add(user)
+    db.commit()
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump({"email": user.email, "password": password, "user_id": str(user.id)}, fh)
+    print(f"admin de prueba {user.email} listo")
+
+
+def destroy_admin(path: str) -> None:
+    cfg = json.load(open(path))
+    db = SessionLocal()
+    user = db.get(User, uuid.UUID(cfg["user_id"]))
+    if user is not None:
+        if not user.email.startswith("e2e-admin-"):
+            raise SystemExit(f"Me niego: {user.email} no es un admin de prueba.")
+        from app.models.control_plane import SecurityEvent
+        db.query(UserSession).filter(UserSession.user_id == user.id).delete(synchronize_session=False)
+        db.query(SecurityEvent).filter(SecurityEvent.user_id == user.id).delete(synchronize_session=False)
+        db.query(AuditLog).filter(AuditLog.actor_user_id == user.id).delete(synchronize_session=False)
+        db.delete(user)
+        db.commit()
+    os.remove(path)
+    print("admin de prueba eliminado")
+
+
 if __name__ == "__main__":
-    {"create": create, "destroy": destroy}[sys.argv[1]](sys.argv[2])
+    {"create": create, "destroy": destroy, "create-admin": create_admin,
+     "destroy-admin": destroy_admin}[sys.argv[1]](sys.argv[2])

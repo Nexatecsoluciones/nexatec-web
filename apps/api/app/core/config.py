@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     cloudflare_tunnel_id: str = Field(default="", alias="CLOUDFLARE_TUNNEL_ID")
     cloudflare_tunnel_service: str = Field(default="http://127.0.0.1:4302", alias="CLOUDFLARE_TUNNEL_SERVICE")
 
+    # MFA (TOTP) obligatorio para el personal de NEXATEC en el Control Center.
+    # True por defecto; el .env de desarrollo/tests lo apaga explicitamente.
+    require_admin_mfa: bool = Field(default=True, alias="NEXATEC_REQUIRE_ADMIN_MFA")
+
     # Autoservicio de pago desde el portal. APAGADO por decision comercial:
     # la venta se cierra por WhatsApp y el alta/pago se registra a mano en el
     # Control Center. El codigo de Bancard y sus credenciales se conservan;

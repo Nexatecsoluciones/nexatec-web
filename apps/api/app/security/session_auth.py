@@ -24,6 +24,24 @@ class CurrentUser:
     tenant_id: UUID | None
     email: str
     role: Role
+    mfa_enabled: bool = False
+
+
+# Etapas de una sesion. Solo FULL sirve para operar; las otras son
+# restringidas y solo permiten completar ese paso (cambiar la contrasena o
+# ingresar el codigo MFA).
+STAGE_FULL = "FULL"
+STAGE_MFA = "MFA"
+STAGE_PASSWORD_CHANGE = "PASSWORD_CHANGE"
+
+
+def initial_stage(user: User) -> str:
+    """MFA primero (prueba de posesion), despues el cambio de contrasena."""
+    if user.mfa_enabled:
+        return STAGE_MFA
+    if user.must_change_password:
+        return STAGE_PASSWORD_CHANGE
+    return STAGE_FULL
 
 
 def _hash_token(raw_token: str) -> str:
@@ -31,7 +49,8 @@ def _hash_token(raw_token: str) -> str:
 
 
 def create_session(
-    db: Session, user: User, response: Response, ip_address: str | None, user_agent: str | None
+    db: Session, user: User, response: Response, ip_address: str | None, user_agent: str | None,
+    stage: str = STAGE_FULL,
 ) -> None:
     """Crea una sesion nueva (rotacion de sesion tras login) y setea la
     cookie. El valor guardado en DB es el hash del token, nunca el token."""
@@ -46,6 +65,7 @@ def create_session(
         ip_address=ip_address,
         user_agent=user_agent,
         expires_at=expires_at,
+        stage=stage,
     )
     db.add(db_session)
     db.commit()
@@ -111,36 +131,46 @@ def _unauthorized() -> HTTPException:
     )
 
 
-async def get_current_user(
-    nexatec_session: str | None = Cookie(default=None, alias="nexatec_session"),
-    db: Session = Depends(get_db),
-) -> CurrentUser:
-    if nexatec_session is None:
+def _load_session(cookie_value: str | None, db: Session) -> tuple[UserSession, User]:
+    if cookie_value is None:
         raise _unauthorized()
-
     try:
-        payload = _serializer.loads(
-            nexatec_session, max_age=settings.session_max_age_seconds
-        )
+        payload = _serializer.loads(cookie_value, max_age=settings.session_max_age_seconds)
     except BadSignature:
         raise _unauthorized()
-
     raw_token = payload.get("tok")
     if not raw_token:
         raise _unauthorized()
-
-    token_hash = _hash_token(raw_token)
     db_session = db.execute(
-        select(UserSession).where(UserSession.token_hash == token_hash)
+        select(UserSession).where(UserSession.token_hash == _hash_token(raw_token))
     ).scalar_one_or_none()
-
     if db_session is None or db_session.revoked_at is not None:
         raise _unauthorized()
     if db_session.expires_at < datetime.now(timezone.utc):
         raise _unauthorized()
-
     user = db.get(User, db_session.user_id)
     if user is None or not user.is_active or user.deleted_at is not None:
         raise _unauthorized()
+    return db_session, user
 
-    return CurrentUser(id=user.id, tenant_id=user.tenant_id, email=user.email, role=user.role)
+
+async def get_current_user(
+    nexatec_session: str | None = Cookie(default=None, alias="nexatec_session"),
+    db: Session = Depends(get_db),
+) -> CurrentUser:
+    db_session, user = _load_session(nexatec_session, db)
+    if db_session.stage != STAGE_FULL:
+        # Sesion a medio completar (falta MFA o cambio de contrasena): no
+        # sirve para nada mas que terminar ese paso.
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"STEP_REQUIRED:{db_session.stage}")
+    return CurrentUser(id=user.id, tenant_id=user.tenant_id, email=user.email, role=user.role,
+                       mfa_enabled=user.mfa_enabled)
+
+
+async def get_session_any_stage(
+    nexatec_session: str | None = Cookie(default=None, alias="nexatec_session"),
+    db: Session = Depends(get_db),
+) -> tuple[UserSession, User]:
+    """Solo para los endpoints que completan una etapa (MFA, cambio de
+    contrasena) y para logout."""
+    return _load_session(nexatec_session, db)
