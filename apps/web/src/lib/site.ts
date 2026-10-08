@@ -1,7 +1,7 @@
 // Datos del sitio publico. Valores comerciales tomados del sitio vigente de
 // NEXATEC (index.html del repo); nada inventado. Datos legales provistos por
 // el titular el 2026-10-08 (RUC verificado con el DV modulo 11 de la SET).
-// El domicilio todavia no se informo: los campos vacios no se muestran.
+// Domicilio informado por el titular el 2026-10-08.
 
 export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "595981813971";
 export const CONTACT_EMAIL = "nexasolucionestec@gmail.com";
@@ -11,7 +11,7 @@ export const LEGAL = {
   tradeName: "Nexatec PY",
   ruc: "5879897-8",
   activity: "Servicios generales, servicios digitales informaticos y de desarrollo web y sistemas",
-  address: process.env.NEXT_PUBLIC_LEGAL_ADDRESS ?? "",
+  address: "Dr. Zacarias Arce entre Aparipy y Nazareth, Barrio Nazareth, Asuncion",
   version: "2026-10-08",
 };
 

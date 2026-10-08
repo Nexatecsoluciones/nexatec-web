@@ -120,7 +120,8 @@ siguen siendo `*-staging` por historia (`/etc/nexatec/api-staging.env`,
 es un cambio aparte con ventana de mantenimiento.
 
 Datos legales del titular (en `apps/web/src/lib/site.ts`): Maria Nazareth
-Meyer, nombre de fantasía Nexatec PY, RUC 5879897-8. Falta el domicilio.
+Meyer, nombre de fantasía Nexatec PY, RUC 5879897-8, domicilio Dr. Zacarias
+Arce entre Aparipy y Nazareth, Barrio Nazareth, Asunción.
 
 Anti-bots: mientras Turnstile use las claves de prueba de Cloudflare, el
 Control Center → Estado muestra "Anti-bots (Turnstile)" como DEGRADED.
