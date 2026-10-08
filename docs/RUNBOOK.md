@@ -8,6 +8,8 @@
 | `nexatec-web-staging.service` | Next.js standalone, `127.0.0.1:4302` |
 | `cloudflared` | Tunnel hacia Cloudflare (instalado por `cloudflared service install`, fuera del control de este repo) |
 | `nexatec-garage.service` | Garage, storage S3-compatible, `127.0.0.1:3900` (S3) / `127.0.0.1:3901` (RPC) |
+| `nexatec-backup.timer` | Diario 03:30: backup cifrado de `nexatec_control` + `nxt_*` (ver `docs/BACKUPS.md`) |
+| `nexatec-restore-check.timer` | Domingos 05:00: restaura el ultimo backup en una base temporal y lo verifica |
 | `nexatec-sweep-expired-demos.timer` | Cada 15 min, corre `python -m app.cli sweep-expired-demos` (oneshot `nexatec-sweep-expired-demos.service`) |
 
 Ninguno depende de mantener una sesion SSH abierta (`systemd`, `enabled`,
@@ -142,9 +144,8 @@ alembic history
 
 ## Backups
 
-Pendiente (`docs/BACKUPS.md` no existe todavia). Hoy `nexatec_control` y
-las DBs de tenant NO tienen backup automatizado -- riesgo conocido, ver
-`docs/SECURITY.md`.
+Diarios, cifrados, con prueba de restauracion semanal: ver `docs/BACKUPS.md`.
+Pendiente: copia fuera del servidor y guardar la clave fuera del servidor.
 
 ## Revocar acceso de un usuario / cerrar una demo comprometida
 

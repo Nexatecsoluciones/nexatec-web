@@ -96,6 +96,7 @@ cd apps/api
 source .venv/bin/activate
 pip install -r requirements.txt
 set -a; source /etc/nexatec/api-staging.env; set +a
+sudo systemctl start nexatec-backup.service   # backup ANTES de migrar
 alembic upgrade head                 # control plane (nexatec_control)
 python -m app.cli migrate-tenants    # cada base de tenant, una por una
 sudo systemctl restart nexatec-api-staging.service
