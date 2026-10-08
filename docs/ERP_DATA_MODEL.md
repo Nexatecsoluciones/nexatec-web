@@ -90,6 +90,34 @@ RUC: `app/services/ruc.py` valida solo el **formato** (DV módulo 11, mismo
 algoritmo que `python-stdnum`, probado con sus vectores publicados). Un RUC
 con DV correcto queda `FORMAT_OK`, nunca `VERIFIED_PROVIDER`.
 
+## Revisión `13e7ce183686` — inventario
+
+| Tabla | Qué es | Reglas en la base |
+|---|---|---|
+| `stock_movements` | Libro de movimientos (kardex) | **Inmutable**: un trigger rechaza todo `UPDATE`/`DELETE`; cantidad `> 0`; `direction` ±1; costo `>= 0`; `reverses_movement_id` único (cada movimiento se revierte una sola vez) |
+| `stock_balances` | Saldo por producto + depósito | `on_hand >= 0` (stock negativo prohibido); `0 <= reserved <= on_hand` |
+
+Lógica en `app/services/inventory.py`, API en `/api/erp/{system_access_id}/stock/...`:
+
+| Endpoint | Qué hace |
+|---|---|
+| `POST receipts` | Entrada con costo; recalcula el **promedio ponderado** del producto |
+| `POST issues` | Salida al costo promedio vigente (queda congelado en el movimiento) |
+| `POST adjustments` | Ajuste IN/OUT, **motivo obligatorio** |
+| `POST transfers` | Dos movimientos (OUT/IN) con el mismo `group_id`; no cambia el promedio |
+| `POST movements/{id}/reverse` | Movimiento compensatorio (motivo obligatorio). Si es una pata de transferencia, revierte las dos. No deja revertir una entrada cuyo stock ya se usó, ni una reversión |
+| `GET movements` | Kardex filtrable (producto, depósito, fechas), paginado |
+| `GET balances` | Saldos con disponible, costo promedio y valorización |
+
+- **Concurrencia**: lock del producto primero, después los saldos en orden
+  de depósito. Test con 10 hilos sacando 3 de un stock de 20: pasan
+  exactamente 6, saldo final 2.
+- **Idempotencia**: header `Idempotency-Key`; un reintento devuelve el mismo
+  movimiento sin volver a descontar.
+- Servicios (`tracks_stock = false`) y productos/depósitos inactivos no
+  admiten movimientos.
+- Escribe solo `CLIENT_ADMIN`; todo queda auditado.
+
 ## Empresa demo ficticia (`app/services/demo_seed.py`)
 
 Al aprovisionar una base de **DEMO** (nunca PRODUCTION) se carga, en una
@@ -110,6 +138,7 @@ de producción arrancan **vacías**.
 ## Qué NO existe todavía
 
 - Pantallas (frontend) para estos maestros.
-- Movimientos de stock, ventas, compras, CxC/CxP, contabilidad.
+- Reservas de stock por pedido (el campo `reserved` existe, nadie lo usa todavía), lotes/series/vencimientos, FIFO.
+- Ventas, compras, CxC/CxP, contabilidad.
 - Historia transaccional en la demo (ventas/compras de 3-6 meses): depende de que existan esos módulos.
 - Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).
