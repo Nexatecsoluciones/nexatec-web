@@ -3,12 +3,12 @@
 `apps/web/e2e/erp.e2e.mjs` maneja un Chromium headless contra **staging**:
 login → portal → "Probar demo" → recorre las 8 pantallas del ERP → hace una
 venta completa **por la interfaz** (pedido, confirmar, entregar, facturar) →
-registra el cobro aplicado a esa factura → emite una nota de crédito (devolución) → verifica que el balance general
+registra el cobro aplicado a esa factura → emite una nota de crédito (devolución) → abre la vista de impresión, verifica la marca de agua y genera el PDF → verifica que el balance general
 diga "Activo = Pasivo + Patrimonio" → revisa que en un celular (390 px) la
 página no desborde. Falla si hay errores de JavaScript en consola. Guarda
 capturas en `E2E_SHOTS` (por defecto `apps/web/e2e/shots/`, ignorado por git).
 
-Última corrida (2026-10-08): **15/15 OK, sin errores de consola**. Además `admin-first-login.e2e.mjs` (primer ingreso de superadmin con cambio de contraseña y MFA): 5/5.
+Última corrida (2026-10-08): **16/16 OK, sin errores de consola**. Además `admin-first-login.e2e.mjs` (primer ingreso de superadmin con cambio de contraseña y MFA): 5/5.
 
 ## Cómo correrla
 

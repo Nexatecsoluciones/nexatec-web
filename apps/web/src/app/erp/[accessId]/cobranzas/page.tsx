@@ -7,7 +7,8 @@ import { day, label, money, quantity, type AgingRow, type CreditNote, type Invoi
 const LIMIT = 25;
 
 function CreditNoteForm({ invoice, onDone }: { invoice: Invoice; onDone: () => void }) {
-  const { client } = useErp();
+  const { client, ctx } = useErp();
+  const accessId = ctx.system_access_id;
   const action = useAction();
   const [kind, setKind] = useState<"RETURN" | "DISCOUNT">("RETURN");
   const [reason, setReason] = useState("");
@@ -36,7 +37,7 @@ function CreditNoteForm({ invoice, onDone }: { invoice: Invoice; onDone: () => v
       {action.error && <Notice>{action.error}</Notice>}
       {action.message && <Notice kind="ok">{action.message}</Notice>}
       {(notes.data?.items ?? []).map((n) => (
-        <p key={n.id} className="text-xs text-nx-muted">{n.number} · {label(n.kind)} · {money(n.total)}{Number(n.unapplied_amount) > 0 ? ` (a favor del cliente: ${money(n.unapplied_amount)})` : ""} · {n.reason}</p>
+        <p key={n.id} className="text-xs text-nx-muted"><a className="text-nx-accent hover:underline" target="_blank" rel="noopener noreferrer" href={`/imprimir/${accessId}/nota-credito/${n.id}`}>{n.number}</a> · {label(n.kind)} · {money(n.total)}{Number(n.unapplied_amount) > 0 ? ` (a favor del cliente: ${money(n.unapplied_amount)})` : ""} · {n.reason}</p>
       ))}
       <form onSubmit={submit} className="mt-2 flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
@@ -68,7 +69,7 @@ function CreditNoteForm({ invoice, onDone }: { invoice: Invoice; onDone: () => v
 }
 
 export default function CobranzasPage() {
-  const { client, can } = useErp();
+  const { client, can, ctx } = useErp();
   const [openOnly, setOpenOnly] = useState(true);
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Invoice | null>(null);
@@ -181,6 +182,8 @@ export default function CobranzasPage() {
           {!selected ? <p className="text-sm text-nx-muted">Elegir una factura.</p> : (
             <div className="flex flex-col gap-2 text-sm">
               <p className="rounded-lg border border-amber-300/40 bg-amber-400/10 p-2 text-center font-bold text-amber-100">{selected.legal_notice}</p>
+              <a href={`/imprimir/${ctx.system_access_id}/factura/${selected.id}`} target="_blank" rel="noopener noreferrer"
+                className="text-right text-sm text-nx-accent hover:underline">Imprimir / PDF</a>
               <p>{name(selected.customer_id)} · {label(selected.payment_condition)}</p>
               <dl className="grid grid-cols-2 gap-1 tabular-nums">
                 <dt className="text-nx-muted">Gravado 10%</dt><dd className="text-right">{money(selected.taxable_10)}</dd>

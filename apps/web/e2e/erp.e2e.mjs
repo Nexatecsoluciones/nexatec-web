@@ -116,6 +116,17 @@ await step("nota de credito por la interfaz", async () => {
   await page.screenshot({ path: `${SHOTS}06-nota-credito.png`, fullPage: true });
 });
 
+await step("vista de impresion con marca de agua y PDF", async () => {
+  const [tab] = await Promise.all([page.context().waitForEvent("page"), page.getByText("Imprimir / PDF").first().click()]);
+  await tab.getByText("DOCUMENTO DE SIMULACIÓN — SIN VALIDEZ TRIBUTARIA").first().waitFor({ timeout: 15000 });
+  await tab.getByText("FICTICIO").first().waitFor({ timeout: 5000 });
+  await tab.screenshot({ path: `${SHOTS}07-factura-impresion.png`, fullPage: true });
+  const pdf = await tab.pdf({ format: "A4", printBackground: true });
+  if (pdf.length < 10000) throw new Error(`PDF demasiado chico (${pdf.length} bytes)`);
+  fs.writeFileSync(`${SHOTS}factura.pdf`, pdf);
+  await tab.close();
+});
+
 await step("contabilidad cuadra", async () => {
   await page.goto(`${erp}/contabilidad`);
   await page.getByRole("button", { name: "Balance general" }).click();

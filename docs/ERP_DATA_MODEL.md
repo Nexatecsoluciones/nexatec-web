@@ -288,6 +288,16 @@ la cuenta Mercaderías pueden diferir en unidades de guaraní.
 - Pendiente: aplicar el saldo a favor de una nota de crédito a otra factura
   (hoy queda como anticipo visible) y devolución de dinero.
 
+## Comprobantes imprimibles / PDF
+
+`/imprimir/{acceso}/factura/{id}` y `/imprimir/{acceso}/nota-credito/{id}`:
+vista A4 que el navegador guarda como PDF ("Imprimir → Guardar como PDF").
+Lleva una **marca de agua diagonal que también se imprime** ("DOCUMENTO DE
+SIMULACIÓN — SIN VALIDEZ TRIBUTARIA"), el aviso en recuadro rojo, "Sin
+timbrado: no emitido ante la DNIT", y el RUC de una empresa demo rotulado
+"FICTICIO — no es un RUC real". El E2E genera el PDF con Chromium y lo
+verifica. No se agregó ninguna librería de PDF al servidor.
+
 ## Empresa demo ficticia (`app/services/demo_seed.py`)
 
 Al aprovisionar una base de **DEMO** (nunca PRODUCTION) se carga, en una
@@ -323,7 +333,6 @@ de producción arrancan **vacías**.
 
 - Pantallas (frontend) para estos maestros.
 - Reservas de stock por pedido (el campo `reserved` existe, nadie lo usa todavía), lotes/series/vencimientos, FIFO.
-- PDF imprimible con marca de agua.
 - Integración SIFEN (bloqueada por diseño, ver gate fiscal).
 - Retenciones de IVA/renta en pagos, costos de importación (landed cost), solicitudes y cotizaciones de compra.
 - Cierre anual (traslado de resultados a Resultados acumulados), conciliación bancaria, centros de costo, multimoneda con diferencia de cambio.
