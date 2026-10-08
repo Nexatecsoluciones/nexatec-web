@@ -263,6 +263,31 @@ Limitación conocida: el costo de cada movimiento se redondea a la moneda
 al contabilizarlo; el valor de inventario del kardex (4 decimales) y el de
 la cuenta Mercaderías pueden diferir en unidades de guaraní.
 
+## Revisión `0b4e58d9d0a6` — notas de crédito (devoluciones y bonificaciones)
+
+| Tabla | Qué es | Reglas en la base |
+|---|---|---|
+| `sales_credit_notes` / `_lines` | Nota de crédito **interna** (`NC-000001`) sobre una factura vigente | Gate fiscal (`INTERNAL_SIMULATION`), desglose suma el total, `aplicado + a favor = total` |
+| `sales_order_lines.quantity_returned` / `amount_credited` | Lo ya devuelto/acreditado por línea | **No se puede acreditar más de lo vendido** (`CHECK`) |
+
+`POST /api/erp/{id}/invoices/{factura}/credit-notes`:
+
+- `RETURN` (por cantidad, mismo precio/descuento/tasa de la venta). Con
+  `restock`, los bienes vuelven al depósito **al costo congelado en la
+  entrega** y se revierte el costo de ventas; sin `restock` (mercadería
+  dañada) no vuelve stock. Devolver el último tramo acredita exactamente lo
+  que queda de la línea (sin arrastrar redondeos).
+- `DISCOUNT` (bonificación por monto bruto sobre una línea).
+- El crédito baja primero el saldo de la factura; si ya estaba cobrada, el
+  resto queda **a favor del cliente** (cuenta como anticipo en antigüedad,
+  extracto y límite de crédito).
+- Asiento: Debe Ventas + IVA débito / Haber Deudores (aplicado) + Anticipos
+  de clientes (a favor). Reingreso: Debe Mercaderías / Haber Costo de ventas.
+- Una factura con notas de crédito ya no se puede anular; el movimiento de
+  reingreso no se puede revertir suelto.
+- Pendiente: aplicar el saldo a favor de una nota de crédito a otra factura
+  (hoy queda como anticipo visible) y devolución de dinero.
+
 ## Empresa demo ficticia (`app/services/demo_seed.py`)
 
 Al aprovisionar una base de **DEMO** (nunca PRODUCTION) se carga, en una
@@ -298,7 +323,7 @@ de producción arrancan **vacías**.
 
 - Pantallas (frontend) para estos maestros.
 - Reservas de stock por pedido (el campo `reserved` existe, nadie lo usa todavía), lotes/series/vencimientos, FIFO.
-- Devoluciones y notas de crédito; PDF imprimible con marca de agua.
+- PDF imprimible con marca de agua.
 - Integración SIFEN (bloqueada por diseño, ver gate fiscal).
 - Retenciones de IVA/renta en pagos, costos de importación (landed cost), solicitudes y cotizaciones de compra.
 - Cierre anual (traslado de resultados a Resultados acumulados), conciliación bancaria, centros de costo, multimoneda con diferencia de cambio.

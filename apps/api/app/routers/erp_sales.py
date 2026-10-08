@@ -58,6 +58,8 @@ class LineOut(BaseModel):
     line_tax: Decimal
     line_total: Decimal
     unit_cost: Decimal | None
+    quantity_returned: Decimal
+    amount_credited: Decimal
     model_config = ConfigDict(from_attributes=True)
 
 

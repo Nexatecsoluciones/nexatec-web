@@ -260,9 +260,13 @@ def reverse(op: OpContext, movement_id: uuid.UUID) -> list[StockMovement]:
     from app.tenant_models.purchases import PurchaseOrder
     from app.tenant_models.sales import SalesOrder
 
+    from app.tenant_models.receivables import SalesCreditNote
+
     if (original.group_id is not None and op.db.get(SalesOrder, original.group_id) is not None) or (
-        original.reference is not None
-        and op.db.execute(select(PurchaseOrder.id).where(PurchaseOrder.number == original.reference)).first()
+        original.reference is not None and (
+            op.db.execute(select(PurchaseOrder.id).where(PurchaseOrder.number == original.reference)).first()
+            or op.db.execute(select(SalesCreditNote.id).where(SalesCreditNote.number == original.reference)).first()
+        )
     ):
         raise InventoryError("Este movimiento lo genero un documento: corregirlo desde el pedido u orden de compra.")
 

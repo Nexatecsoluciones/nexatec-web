@@ -101,6 +101,21 @@ await step("cobro de la factura nueva", async () => {
   await expectText("Cobro registrado y aplicado");
 });
 
+await step("nota de credito por la interfaz", async () => {
+  await page.goto(`${erp}/cobranzas`);
+  await page.getByText("Solo con saldo pendiente").waitFor({ timeout: 15000 });
+  await page.locator('input[type="checkbox"]').first().uncheck();
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: /^FI-/ }).first().click();
+  await expectText("Emitir nota de credito");
+  const cnForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Emitir nota de credito" }) });
+  await cnForm.locator('input[type="number"]:not([disabled])').first().fill("1");
+  await cnForm.getByPlaceholder("Motivo").fill("Devolucion E2E");
+  await page.getByRole("button", { name: "Emitir nota de credito" }).click();
+  await expectText("Nota de credito emitida");
+  await page.screenshot({ path: `${SHOTS}06-nota-credito.png`, fullPage: true });
+});
+
 await step("contabilidad cuadra", async () => {
   await page.goto(`${erp}/contabilidad`);
   await page.getByRole("button", { name: "Balance general" }).click();

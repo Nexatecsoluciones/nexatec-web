@@ -177,7 +177,8 @@ def post_stock_movement(db: Session, m: StockMovement, source: str | None, user_
     value = (m.quantity * m.unit_cost).quantize(_unit(db), ROUND_HALF_UP)
     inv = account_for(db, "INVENTORY")
     if m.movement_type == MovementType.RECEIPT:
-        other = account_for(db, "GRNI" if source == "PURCHASE_ORDER" else "INVENTORY_ADJUSTMENT")
+        # Devolucion de venta con reingreso: revierte costo de ventas.
+        other = account_for(db, {"PURCHASE_ORDER": "GRNI", "SALES_RETURN": "COGS"}.get(source, "INVENTORY_ADJUSTMENT"))
         lines = [Line(inv, debit=value), Line(other, credit=value)]
         desc = f"Entrada de stock {m.reference or ''}"
     elif m.movement_type == MovementType.ISSUE:
@@ -202,6 +203,16 @@ def post_sales_invoice(db: Session, inv, user_id) -> None:
         Line(account_for(db, "SALES_REVENUE"), credit=net),
         Line(account_for(db, "VAT_OUTPUT_10"), credit=inv.vat_10),
         Line(account_for(db, "VAT_OUTPUT_5"), credit=inv.vat_5),
+    ]), user_id)
+
+
+def post_sales_credit_note(db: Session, note, user_id) -> None:
+    post_entry(db, EntryDraft(note.issue_date, f"Nota de credito {note.number}", "SALES_CREDIT_NOTE", note.id, [
+        Line(account_for(db, "SALES_REVENUE"), debit=note.taxable_10 + note.taxable_5 + note.exempt),
+        Line(account_for(db, "VAT_OUTPUT_10"), debit=note.vat_10),
+        Line(account_for(db, "VAT_OUTPUT_5"), debit=note.vat_5),
+        Line(account_for(db, "AR"), credit=note.applied_amount, party_id=note.customer_id),
+        Line(account_for(db, "CUSTOMER_ADVANCES"), credit=note.unapplied_amount, party_id=note.customer_id),
     ]), user_id)
 
 

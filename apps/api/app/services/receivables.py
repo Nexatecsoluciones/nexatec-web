@@ -26,6 +26,7 @@ from app.tenant_models.receivables import (
     PaymentMethod,
     ReceiptAllocation,
     ReceiptStatus,
+    SalesCreditNote,
     SalesInvoice,
 )
 from app.tenant_models.sales import PaymentCondition, SalesOrder, SalesOrderStatus
@@ -236,7 +237,10 @@ def credit_exposure(db: Session, customer_id: uuid.UUID) -> Decimal:
         select(func.coalesce(func.sum(CustomerReceipt.unapplied_amount), 0))
         .where(CustomerReceipt.customer_id == customer_id, CustomerReceipt.status == ReceiptStatus.POSTED)
     ).scalar_one()
-    return Decimal(open_invoices) + Decimal(pending_orders) - Decimal(advances)
+    credit_balance = db.execute(
+        select(func.coalesce(func.sum(SalesCreditNote.unapplied_amount), 0)).where(SalesCreditNote.customer_id == customer_id)
+    ).scalar_one()
+    return Decimal(open_invoices) + Decimal(pending_orders) - Decimal(advances) - Decimal(credit_balance)
 
 
 def assert_credit_available(db: Session, customer_id: uuid.UUID, amount: Decimal) -> None:
@@ -281,6 +285,12 @@ def aging(db: Session, as_of: date) -> list[dict]:
                CustomerReceipt.receipt_date <= as_of)
         .group_by(CustomerReceipt.customer_id)
     ).all())
+    for cid, amount in db.execute(
+        select(SalesCreditNote.customer_id, func.sum(SalesCreditNote.unapplied_amount))
+        .where(SalesCreditNote.unapplied_amount > 0, SalesCreditNote.issue_date <= as_of)
+        .group_by(SalesCreditNote.customer_id)
+    ).all():
+        advances[cid] = Decimal(advances.get(cid, 0)) + Decimal(amount)
     by_customer: dict[uuid.UUID, dict] = {}
     for cid, due, bal in rows:
         entry = by_customer.setdefault(cid, {b: Decimal("0") for b in BUCKETS})
@@ -305,6 +315,9 @@ def statement(db: Session, customer_id: uuid.UUID) -> list[dict]:
     for rc in db.execute(select(CustomerReceipt).where(CustomerReceipt.customer_id == customer_id)).scalars():
         events.append({"date": rc.receipt_date, "created_at": rc.created_at, "kind": "RECEIPT", "number": rc.number,
                        "debit": Decimal("0"), "credit": rc.amount, "voided": rc.status == ReceiptStatus.VOIDED})
+    for cn in db.execute(select(SalesCreditNote).where(SalesCreditNote.customer_id == customer_id)).scalars():
+        events.append({"date": cn.issue_date, "created_at": cn.created_at, "kind": "CREDIT_NOTE", "number": cn.number,
+                       "debit": Decimal("0"), "credit": cn.total, "voided": False})
     events.sort(key=lambda e: (e["date"], e["created_at"]))
     running = Decimal("0")
     for e in events:
@@ -314,3 +327,111 @@ def statement(db: Session, customer_id: uuid.UUID) -> list[dict]:
         del e["created_at"]
     return events
 
+
+
+# --- Notas de credito ---------------------------------------------------------
+
+
+@dataclass
+class CreditLineInput:
+    line_no: int
+    quantity: Decimal | None = None   # RETURN
+    amount: Decimal | None = None     # DISCOUNT (bruto, IVA incluido)
+
+
+def issue_credit_note(db: Session, *, invoice_id: uuid.UUID, kind, reason: str, restock: bool,
+                      lines: list[CreditLineInput], user_id: uuid.UUID | None):
+    """Nota de credito interna sobre una factura vigente.
+
+    RETURN: por cantidad, al mismo precio/descuento/tasa de la venta; si
+    `restock`, los bienes vuelven al deposito al costo congelado en la
+    entrega (y se revierte el costo de ventas). DISCOUNT: por monto bruto.
+    Nunca se acredita mas de lo vendido por linea (CHECK en la base). El
+    credito baja primero el saldo de la factura; lo que sobra queda a favor
+    del cliente (anticipo)."""
+    from app.services import inventory
+    from app.services.sales import _currency, compute_line
+    from app.tenant_models.core import Product, ProductType
+    from app.tenant_models.receivables import CreditNoteKind, SalesCreditNote, SalesCreditNoteLine
+    from app.tenant_models.sales import SalesOrderLine
+
+    if not lines:
+        raise ReceivablesError("La nota de credito tiene que tener al menos una linea.")
+    if len({ln.line_no for ln in lines}) != len(lines):
+        raise ReceivablesError("Una linea aparece dos veces.")
+    invoice = _lock_invoices(db, [invoice_id]).get(invoice_id)
+    if invoice is None:
+        raise NotFound("Factura no encontrada.")
+    if invoice.status != InvoiceStatus.ISSUED:
+        raise Conflict("La factura no esta vigente.")
+    order = db.get(SalesOrder, invoice.order_id)
+    order_lines = {
+        ln.line_no: ln for ln in db.execute(
+            select(SalesOrderLine).where(SalesOrderLine.order_id == order.id).with_for_update()
+            .execution_options(populate_existing=True)
+        ).scalars()
+    }
+    q = Decimal(1).scaleb(-_currency(db).decimals)
+    note = SalesCreditNote(
+        id=uuid.uuid4(), number=next_number(db, "CREDIT_NOTE"), invoice_id=invoice.id, customer_id=invoice.customer_id,
+        kind=kind, fiscal_status=FiscalStatus.INTERNAL_SIMULATION, issue_date=local_today(db), reason=reason,
+        restocked=bool(restock and kind == CreditNoteKind.RETURN), created_by_user_id=user_id,
+        taxable_10=0, vat_10=0, taxable_5=0, vat_5=0, exempt=0, total=0, applied_amount=0, unapplied_amount=0,
+    )
+    db.add(note)
+    to_restock = []
+    totals = {"taxable_10": Decimal(0), "vat_10": Decimal(0), "taxable_5": Decimal(0), "vat_5": Decimal(0), "exempt": Decimal(0)}
+    for item in sorted(lines, key=lambda x: x.line_no):
+        ol = order_lines.get(item.line_no)
+        if ol is None:
+            raise NotFound(f"La linea {item.line_no} no existe en la factura.")
+        remaining_amount = ol.line_total - ol.amount_credited
+        if kind == CreditNoteKind.RETURN:
+            qty = Decimal(item.quantity or 0)
+            remaining_qty = ol.quantity - ol.quantity_returned
+            if qty <= 0 or qty > remaining_qty:
+                raise Conflict(f"Linea {ol.line_no}: se puede devolver hasta {remaining_qty.normalize()}.")
+            if qty == remaining_qty:
+                gross = remaining_amount  # ultimo tramo: exacto, sin arrastrar redondeos
+            else:
+                _, _, gross = compute_line(qty, ol.unit_price, ol.discount_pct, ol.tax_rate, _currency(db).decimals)
+                gross = min(gross, remaining_amount)
+            ol.quantity_returned += qty
+            if note.restocked:
+                product = db.get(Product, ol.product_id)
+                if product.product_type == ProductType.GOOD and product.tracks_stock and ol.unit_cost is not None:
+                    to_restock.append((ol, qty))
+        else:
+            gross = Decimal(item.amount or 0).quantize(q)
+            qty = Decimal(0)
+            if gross <= 0 or gross > remaining_amount:
+                raise Conflict(f"Linea {ol.line_no}: se puede bonificar hasta {remaining_amount}.")
+        if gross <= 0:
+            raise Conflict(f"Linea {ol.line_no}: no queda monto para acreditar.")
+        tax = (gross * ol.tax_rate / (Decimal(100) + ol.tax_rate)).quantize(q)
+        net = gross - tax
+        ol.amount_credited += gross
+        if ol.tax_rate == 10:
+            totals["taxable_10"] += net
+            totals["vat_10"] += tax
+        elif ol.tax_rate == 5:
+            totals["taxable_5"] += net
+            totals["vat_5"] += tax
+        else:
+            totals["exempt"] += gross
+        db.add(SalesCreditNoteLine(credit_note_id=note.id, order_line_id=ol.id, order_line_no=ol.line_no,
+                                   product_id=ol.product_id, description=ol.description, quantity=qty,
+                                   tax_rate=ol.tax_rate, line_net=net, line_tax=tax, line_total=gross))
+    for k, v in totals.items():
+        setattr(note, k, v)
+    note.total = sum(totals.values())
+    note.applied_amount = min(note.total, invoice.balance_due)
+    note.unapplied_amount = note.total - note.applied_amount
+    invoice.balance_due -= note.applied_amount
+    db.flush()
+
+    op = inventory.OpContext(db=db, user_id=user_id, reference=note.number, source="SALES_RETURN")
+    for ol, qty in sorted(to_restock, key=lambda x: (str(x[0].product_id), x[0].line_no)):
+        inventory.receive(op, ol.product_id, order.warehouse_id, qty, ol.unit_cost)
+    accounting.post_sales_credit_note(db, note, user_id)
+    return note

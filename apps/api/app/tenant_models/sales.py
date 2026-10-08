@@ -91,6 +91,9 @@ class SalesOrderLine(TenantBase):
         CheckConstraint("unit_price >= 0", name="ck_sales_order_lines_price_non_negative"),
         CheckConstraint("discount_pct >= 0 AND discount_pct <= 100", name="ck_sales_order_lines_discount_range"),
         CheckConstraint("line_total = line_net + line_tax", name="ck_sales_order_lines_total_consistent"),
+        # Lo acreditado por notas de credito nunca supera lo vendido.
+        CheckConstraint("quantity_returned >= 0 AND quantity_returned <= quantity", name="ck_sales_order_lines_returned_range"),
+        CheckConstraint("amount_credited >= 0 AND amount_credited <= line_total", name="ck_sales_order_lines_credited_range"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -109,5 +112,7 @@ class SalesOrderLine(TenantBase):
     line_total: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     # Costo unitario congelado al entregar (NULL hasta entonces o si es servicio).
     unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
+    quantity_returned: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=Decimal("0"), server_default="0")
+    amount_credited: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=Decimal("0"), server_default="0")
 
     order: Mapped[SalesOrder] = relationship(back_populates="lines")

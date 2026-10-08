@@ -2,9 +2,70 @@
 
 import { useState } from "react";
 import { Field, Input, Notice, PageTitle, Pager, Panel, Select, SmallButton, Table, useAction, useErp, useLoad } from "@/components/erp";
-import { day, label, money, type AgingRow, type Invoice, type Page, type Party, type PaymentMethod, type Receipt } from "@/lib/erp";
+import { day, label, money, quantity, type AgingRow, type CreditNote, type Invoice, type Page, type Party, type PaymentMethod, type Receipt, type SalesOrder } from "@/lib/erp";
 
 const LIMIT = 25;
+
+function CreditNoteForm({ invoice, onDone }: { invoice: Invoice; onDone: () => void }) {
+  const { client } = useErp();
+  const action = useAction();
+  const [kind, setKind] = useState<"RETURN" | "DISCOUNT">("RETURN");
+  const [reason, setReason] = useState("");
+  const [restock, setRestock] = useState(true);
+  const [values, setValues] = useState<Record<number, string>>({});
+  const order = useLoad(() => client.get<SalesOrder>(`/sales/orders/${invoice.order_id}`), [invoice.order_id]);
+  const notes = useLoad(() => client.get<Page<CreditNote>>("/credit-notes", { invoice_id: invoice.id }), [invoice.id]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const lines = Object.entries(values).filter(([, v]) => Number(v) > 0)
+      .map(([n, v]) => (kind === "RETURN" ? { line_no: Number(n), quantity: v } : { line_no: Number(n), amount: v }));
+    if (!lines.length) return;
+    if (await action.run(() => client.post(`/invoices/${invoice.id}/credit-notes`, { kind, reason, restock, lines }), "Nota de credito emitida.")) {
+      setValues({});
+      setReason("");
+      order.reload();
+      notes.reload();
+      onDone();
+    }
+  }
+
+  return (
+    <div className="mt-3 border-t border-nx-line pt-3">
+      <h3 className="mb-2 font-bold">Nota de credito</h3>
+      {action.error && <Notice>{action.error}</Notice>}
+      {action.message && <Notice kind="ok">{action.message}</Notice>}
+      {(notes.data?.items ?? []).map((n) => (
+        <p key={n.id} className="text-xs text-nx-muted">{n.number} · {label(n.kind)} · {money(n.total)}{Number(n.unapplied_amount) > 0 ? ` (a favor del cliente: ${money(n.unapplied_amount)})` : ""} · {n.reason}</p>
+      ))}
+      <form onSubmit={submit} className="mt-2 flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Select value={kind} onChange={(e) => { setKind(e.target.value as "RETURN" | "DISCOUNT"); setValues({}); }}>
+            <option value="RETURN">Devolucion (por cantidad)</option>
+            <option value="DISCOUNT">Bonificacion (por monto)</option>
+          </Select>
+          {kind === "RETURN" && (
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} /> Reingresar al stock</label>
+          )}
+        </div>
+        {(order.data?.lines ?? []).map((l) => {
+          const maxQty = Number(l.quantity) - Number(l.quantity_returned);
+          const maxAmount = Number(l.line_total) - Number(l.amount_credited);
+          return (
+            <div key={l.line_no} className="grid grid-cols-[1fr_120px] items-center gap-2 text-xs">
+              <span>{l.description} · {kind === "RETURN" ? `hasta ${quantity(maxQty)}` : `hasta ${money(maxAmount)}`}</span>
+              <Input type="number" min="0" step={kind === "RETURN" ? "0.0001" : "1"} max={String(kind === "RETURN" ? maxQty : maxAmount)}
+                disabled={(kind === "RETURN" ? maxQty : maxAmount) <= 0}
+                value={values[l.line_no] ?? ""} onChange={(e) => setValues({ ...values, [l.line_no]: e.target.value })} />
+            </div>
+          );
+        })}
+        <Input required minLength={3} placeholder="Motivo" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <div className="text-right"><SmallButton type="submit" tone="primary" disabled={action.busy}>Emitir nota de credito</SmallButton></div>
+      </form>
+    </div>
+  );
+}
 
 export default function CobranzasPage() {
   const { client, can } = useErp();
@@ -131,7 +192,10 @@ export default function CobranzasPage() {
                 <dt className="text-nx-muted">Saldo</dt><dd className="text-right">{money(selected.balance_due)}</dd>
               </dl>
               {can("receivables:write") && selected.status === "ISSUED" && (
-                <div className="text-right"><SmallButton tone="danger" disabled={action.busy} onClick={() => voidInvoice(selected)}>Anular factura</SmallButton></div>
+                <>
+                  <div className="text-right"><SmallButton tone="danger" disabled={action.busy} onClick={() => voidInvoice(selected)}>Anular factura</SmallButton></div>
+                  <CreditNoteForm invoice={selected} onDone={() => { reloadAll(); client.get<Invoice>(`/invoices/${selected.id}`).then(setSelected); }} />
+                </>
               )}
             </div>
           )}

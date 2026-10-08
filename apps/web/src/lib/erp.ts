@@ -61,6 +61,8 @@ export interface OrderLine {
   line_no: number; product_id: string; description: string; quantity: string; unit_price: Money;
   discount_pct: string; tax_code: string; tax_rate: string; line_net: Money; line_tax: Money; line_total: Money;
   unit_cost: string | null;
+  quantity_returned: string;
+  amount_credited: Money;
 }
 
 export type OrderStatus = "DRAFT" | "CONFIRMED" | "DELIVERED" | "CANCELLED";
@@ -74,6 +76,11 @@ export interface SalesOrder {
 export interface SalesOrderSummary {
   id: string; number: string; customer_id: string; status: OrderStatus; payment_condition: "CASH" | "CREDIT";
   total: Money; created_at: string;
+}
+
+export interface CreditNote {
+  id: string; number: string; invoice_id: string; kind: "RETURN" | "DISCOUNT"; issue_date: string; reason: string;
+  restocked: boolean; total: Money; applied_amount: Money; unapplied_amount: Money; legal_notice: string | null;
 }
 
 export interface Invoice {
@@ -202,7 +209,7 @@ export function day(iso: string | null | undefined): string {
 export const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Borrador", CONFIRMED: "Confirmado", DELIVERED: "Entregado", CANCELLED: "Cancelado",
   PARTIALLY_RECEIVED: "Recibido parcial", RECEIVED: "Recibido", CLOSED: "Cerrado",
-  ISSUED: "Vigente", VOIDED: "Anulado", POSTED: "Registrado",
+  ISSUED: "Vigente", VOIDED: "Anulado", POSTED: "Registrado", RETURN: "Devolucion", DISCOUNT: "Bonificacion",
   CASH: "Contado", CREDIT: "Credito", TRANSFER: "Transferencia", CARD: "Tarjeta", CHECK: "Cheque", OTHER: "Otro",
   GOOD: "Bien", SERVICE: "Servicio",
   RECEIPT: "Entrada", ISSUE: "Salida", ADJUSTMENT_IN: "Ajuste +", ADJUSTMENT_OUT: "Ajuste -",

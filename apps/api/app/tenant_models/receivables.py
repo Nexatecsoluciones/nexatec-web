@@ -142,3 +142,71 @@ class ReceiptAllocation(TenantBase):
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
 
     receipt: Mapped[CustomerReceipt] = relationship(back_populates="allocations")
+
+
+class CreditNoteKind(str, enum.Enum):
+    RETURN = "RETURN"        # devolucion de mercaderia/servicio, por cantidad
+    DISCOUNT = "DISCOUNT"    # bonificacion posterior, por monto
+
+
+class SalesCreditNote(TenantBase):
+    """Nota de credito INTERNA sobre una factura interna. Mismo gate fiscal
+    que las facturas: no puede dejar de ser simulacion sin una migracion
+    explicita (ver ck_sales_credit_notes_fiscal_gate)."""
+
+    __tablename__ = "sales_credit_notes"
+    __table_args__ = (
+        CheckConstraint("total > 0", name="ck_sales_credit_notes_total_positive"),
+        CheckConstraint("taxable_10 + vat_10 + taxable_5 + vat_5 + exempt = total", name="ck_sales_credit_notes_breakdown_sums"),
+        CheckConstraint("applied_amount >= 0 AND applied_amount <= total", name="ck_sales_credit_notes_applied_range"),
+        CheckConstraint("unapplied_amount >= 0 AND applied_amount + unapplied_amount = total",
+                        name="ck_sales_credit_notes_amounts_consistent"),
+        CheckConstraint("fiscal_status = 'INTERNAL_SIMULATION'", name="ck_sales_credit_notes_fiscal_gate"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    number: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sales_invoices.id"), nullable=False, index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("parties.id"), nullable=False, index=True)
+    kind: Mapped[CreditNoteKind] = mapped_column(Enum(CreditNoteKind, name="credit_note_kind"), nullable=False)
+    fiscal_status: Mapped[FiscalStatus] = mapped_column(
+        Enum(FiscalStatus, name="fiscal_status", create_type=False), nullable=False
+    )
+    issue_date: Mapped[date] = mapped_column(Date, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    restocked: Mapped[bool] = mapped_column(nullable=False, default=False)
+    taxable_10: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    vat_10: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    taxable_5: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    vat_5: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    exempt: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    total: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    # Parte que bajo el saldo de la factura / parte que queda a favor del cliente.
+    applied_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    unapplied_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    lines: Mapped[list["SalesCreditNoteLine"]] = relationship(back_populates="credit_note", order_by="SalesCreditNoteLine.order_line_no")
+
+
+class SalesCreditNoteLine(TenantBase):
+    __tablename__ = "sales_credit_note_lines"
+    __table_args__ = (
+        CheckConstraint("quantity >= 0", name="ck_sales_credit_note_lines_quantity_non_negative"),
+        CheckConstraint("line_total > 0 AND line_total = line_net + line_tax", name="ck_sales_credit_note_lines_amounts"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    credit_note_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sales_credit_notes.id"), nullable=False, index=True)
+    order_line_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sales_order_lines.id"), nullable=False)
+    order_line_no: Mapped[int] = mapped_column(nullable=False)
+    product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    description: Mapped[str] = mapped_column(String(200), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    line_net: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    line_tax: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    line_total: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+
+    credit_note: Mapped[SalesCreditNote] = relationship(back_populates="lines")

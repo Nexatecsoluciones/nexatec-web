@@ -15,7 +15,9 @@ from app.security.erp_context import ErpContext, get_erp_context, require
 from app.services import receivables
 from app.services.sales import SalesError
 from app.tenant_models.receivables import (
+    CreditNoteKind,
     CustomerReceipt,
+    SalesCreditNote,
     FiscalStatus,
     InvoiceStatus,
     PaymentMethod,
@@ -148,7 +150,7 @@ def _run(ctx: ErpContext, action: str, fn, resource_prefix: str):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conflicto al guardar, reintentar.")
     ctx.db.refresh(obj)
     log_audit(ctx.control_db, actor_user_id=ctx.user.id, tenant_id=ctx.tenant_id, action=action,
-              resource=f"{resource_prefix}:{obj.id}", metadata={"number": obj.number, "status": obj.status.value})
+              resource=f"{resource_prefix}:{obj.id}", metadata={"number": obj.number, "status": getattr(getattr(obj, "status", None), "value", None)})
     ctx.control_db.commit()
     return obj
 
@@ -272,3 +274,98 @@ def get_aging(ctx: ErpContext = Depends(require("receivables:read")), as_of: dat
 def get_statement(customer_id: uuid.UUID, ctx: ErpContext = Depends(require("receivables:read"))):
     return receivables.statement(ctx.db, customer_id)
 
+
+
+# --- Notas de credito ----------------------------------------------------------------
+
+
+class CreditLineIn(BaseModel):
+    line_no: int = Field(ge=1)
+    quantity: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=4)
+    amount: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=2)
+
+
+class CreditNoteIn(BaseModel):
+    kind: CreditNoteKind
+    reason: str = Field(min_length=3, max_length=1000)
+    restock: bool = True
+    lines: list[CreditLineIn] = Field(min_length=1, max_length=200)
+
+
+class CreditNoteLineOut(BaseModel):
+    order_line_no: int
+    description: str
+    quantity: Decimal
+    tax_rate: Decimal
+    line_net: Decimal
+    line_tax: Decimal
+    line_total: Decimal
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CreditNoteOut(BaseModel):
+    id: uuid.UUID
+    number: str
+    invoice_id: uuid.UUID
+    customer_id: uuid.UUID
+    kind: CreditNoteKind
+    fiscal_status: FiscalStatus
+    issue_date: date
+    reason: str
+    restocked: bool
+    taxable_10: Decimal
+    vat_10: Decimal
+    taxable_5: Decimal
+    vat_5: Decimal
+    exempt: Decimal
+    total: Decimal
+    applied_amount: Decimal
+    unapplied_amount: Decimal
+    lines: list[CreditNoteLineOut]
+    model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def legal_notice(self) -> str | None:
+        if self.fiscal_status == FiscalStatus.INTERNAL_SIMULATION:
+            return receivables.LEGAL_NOTICE_SIMULATION
+        return None
+
+
+class CreditNotePage(BaseModel):
+    total: int
+    items: list[CreditNoteOut]
+
+
+@router.post("/invoices/{invoice_id}/credit-notes", response_model=CreditNoteOut, status_code=status.HTTP_201_CREATED)
+def issue_credit_note(invoice_id: uuid.UUID, payload: CreditNoteIn, ctx: ErpContext = Depends(require("receivables:write"))):
+    for ln in payload.lines:
+        needed = ln.quantity if payload.kind == CreditNoteKind.RETURN else ln.amount
+        if needed is None:
+            raise HTTPException(status_code=422, detail="Devolucion: indicar cantidad. Bonificacion: indicar monto.")
+    items = [receivables.CreditLineInput(line_no=ln.line_no, quantity=ln.quantity, amount=ln.amount) for ln in payload.lines]
+    return _run(ctx, "ERP_CREDIT_NOTE_ISSUED", lambda: receivables.issue_credit_note(
+        ctx.db, invoice_id=invoice_id, kind=payload.kind, reason=payload.reason, restock=payload.restock,
+        lines=items, user_id=ctx.user.id), "sales_credit_note")
+
+
+@router.get("/credit-notes/{credit_note_id}", response_model=CreditNoteOut)
+def get_credit_note(credit_note_id: uuid.UUID, ctx: ErpContext = Depends(require("receivables:read"))):
+    note = ctx.db.get(SalesCreditNote, credit_note_id)
+    if note is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota de credito no encontrada.")
+    return note
+
+
+@router.get("/credit-notes", response_model=CreditNotePage)
+def list_credit_notes(ctx: ErpContext = Depends(require("receivables:read")), invoice_id: uuid.UUID | None = None,
+                      customer_id: uuid.UUID | None = None, limit: int = Query(default=50, ge=1, le=MAX_PAGE),
+                      offset: int = Query(default=0, ge=0)):
+    stmt = select(SalesCreditNote)
+    if invoice_id:
+        stmt = stmt.where(SalesCreditNote.invoice_id == invoice_id)
+    if customer_id:
+        stmt = stmt.where(SalesCreditNote.customer_id == customer_id)
+    total = ctx.db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
+    items = ctx.db.execute(stmt.order_by(SalesCreditNote.created_at.desc()).limit(limit).offset(offset)).scalars().all()
+    return CreditNotePage(total=total, items=items)
