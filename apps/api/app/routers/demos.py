@@ -19,8 +19,7 @@ from app.models.tenancy_enums import (
     TenantStatus,
 )
 from app.security.rbac import require_admin_panel
-from app.services import cloudflare_dns, hostname_exposure
-from app.services.hostname_resolution import register_tenant_hostname
+from app.services import hostname_exposure
 from app.services.provisioning import ProvisioningError, provision_tenant_database
 
 router = APIRouter(prefix="/api/admin/demos", tags=["admin", "demos"])
@@ -47,7 +46,7 @@ class DemoInstanceOut(BaseModel):
     starts_at: datetime | None
     expires_at: datetime | None
     # Solo presente cuando create_demo pudo asignar un subdominio (ver
-    # _assign_hostname_best_effort). None no significa error -- la demo
+    # hostname_exposure.assign_best_effort). None no significa error -- la demo
     # sigue siendo accesible por el portal con login normal.
     hostname: str | None = None
 
@@ -64,38 +63,6 @@ class ProductionInstanceOut(BaseModel):
     hostname: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
-
-
-def _assign_hostname_best_effort(
-    db: Session, *, tenant: Tenant, system_id: uuid.UUID, environment: Environment, prefix: str = ""
-) -> str | None:
-    """Intenta registrar `<prefix><tenant.slug>.nexatecpy.com` en
-    tenant_hostnames (ver app/services/hostname_resolution.py) y, si
-    Cloudflare esta configurado (ver app/services/cloudflare_dns.py),
-    exponerlo de verdad (DNS CNAME + ruta del Tunnel). Best effort a
-    proposito en los dos pasos: un slug invalido para DNS, una colision,
-    o que Cloudflare no este configurado/falle, NUNCA deben hacer fallar
-    el aprovisionamiento de la demo/produccion -- el acceso por login en
-    el portal sigue funcionando igual sin subdominio expuesto. El admin
-    puede resolverlo a mano despues si esto falla."""
-    hostname = f"{prefix}{tenant.slug}.nexatecpy.com"
-    try:
-        register_tenant_hostname(
-            db, tenant_id=tenant.id, system_id=system_id, environment=environment,
-            hostname=hostname, is_primary=True,
-        )
-    except ValueError:
-        return None
-
-    try:
-        cloudflare_dns.ensure_public_hostname_route(hostname)
-    except (cloudflare_dns.CloudflareNotConfiguredError, cloudflare_dns.CloudflareApiError):
-        # El hostname queda registrado en tenant_hostnames igual -- solo
-        # no esta expuesto en internet todavia. No es un error del
-        # aprovisionamiento en si.
-        pass
-
-    return hostname
 
 
 def _get_demo_or_404(db: Session, demo_id: uuid.UUID) -> DemoInstance:
@@ -205,7 +172,7 @@ def create_demo(
     access.starts_at = now
     access.expires_at = expires_at
 
-    hostname = _assign_hostname_best_effort(
+    hostname = hostname_exposure.assign_best_effort(
         db, tenant=tenant, system_id=payload.system_id, environment=Environment.DEMO, prefix="demo-"
     )
 
@@ -420,7 +387,7 @@ def convert_demo_to_production(
     prod_access.starts_at = production.activated_at
 
     tenant = db.get(Tenant, demo.tenant_id)
-    hostname = _assign_hostname_best_effort(
+    hostname = hostname_exposure.assign_best_effort(
         db, tenant=tenant, system_id=demo.system_id, environment=Environment.PRODUCTION
     )
 

@@ -12,7 +12,7 @@ from app.main import app
 from app.models.control_center import DemoRequest, InstanceConfiguration, InstanceSecretValue, ProvisioningJob, ServiceRegistry
 from app.models.control_plane import PasswordResetToken, Tenant, User, UserSession
 from app.models.system import System
-from app.models.tenancy import DemoInstance, SystemAccess, TenantDatabase, TenantDatabaseCredential, TenantUser
+from app.models.tenancy import DemoInstance, SystemAccess, TenantDatabase, TenantDatabaseCredential, TenantHostname, TenantUser
 from app.security.passwords import hash_password
 from app.security.roles import Role
 from app.services.provisioning import force_drop_tenant_database_for_tests
@@ -266,6 +266,9 @@ def test_demo_request_approval_creates_tenant_and_provisions(admin_client, produ
 
     # cleanup completo, incluida la base fisica real
     force_drop_tenant_database_for_tests(tenant_db.database_identifier)
+    assert any(st["name"] == "Subdominio" for st in db.query(ProvisioningJob).filter(
+        ProvisioningJob.tenant_id == tenant_id).one().steps)
+    db.query(TenantHostname).filter(TenantHostname.tenant_id == tenant_id).delete(synchronize_session=False)
     db.query(ProvisioningJob).filter(ProvisioningJob.tenant_id == tenant_id).delete(synchronize_session=False)
     db.query(TenantDatabaseCredential).filter(TenantDatabaseCredential.tenant_database_id == tenant_db.id).delete()
     db.query(DemoInstance).filter(DemoInstance.id == demo.id).delete()

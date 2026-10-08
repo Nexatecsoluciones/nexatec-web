@@ -4,7 +4,8 @@ ejecuta de forma SINCRONA dentro del mismo request todavia: no existe un
 worker/cola async en el proyecto (Valkey nunca se instalo, ver
 docs/ARCHITECTURE.md). Cuando exista, esta funcion es el unico lugar que
 habria que mover a un task de background -- el modelo de datos
-(ProvisioningJob.steps) ya esta listo para eso."""
+(ProvisioningJob.steps) ya esta listo para eso. Los pasos registran solo
+lo que realmente ocurrio (sin pasos decorativos)."""
 
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -15,9 +16,11 @@ from sqlalchemy.orm import Session
 from app.core.audit import log_audit
 from app.models.control_center import ProvisioningJob
 from app.models.control_center_enums import JobStatus, JobType
+from app.models.control_plane import Tenant
 from app.models.system import System
 from app.models.tenancy import DemoInstance, SystemAccess
 from app.models.tenancy_enums import Environment, ProvisioningStatus, SystemAccessStatus
+from app.services import hostname_exposure
 from app.services.provisioning import ProvisioningError, provision_tenant_database
 
 
@@ -66,10 +69,9 @@ def run_demo_provisioning_job(
         db.add(demo)
         db.flush()
 
-        _add_step(job, "Creando base de datos", True)
         tenant_db = provision_tenant_database(db, tenant_id, system_id, Environment.DEMO)
-
-        _add_step(job, "Aplicando migrations", True, "sin migrations de producto todavia (motor generico)")
+        _add_step(job, "Base de datos creada, esquema migrado y empresa demo cargada", True,
+                  f"esquema {tenant_db.schema_version}")
 
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(days=duration_days)
@@ -81,7 +83,10 @@ def run_demo_provisioning_job(
         access.starts_at = now
         access.expires_at = expires_at
 
-        _add_step(job, "Verificando health", True)
+        tenant = db.get(Tenant, tenant_id)
+        hostname = hostname_exposure.assign_best_effort(
+            db, tenant=tenant, system_id=system_id, environment=Environment.DEMO, prefix="demo-")
+        _add_step(job, "Subdominio", hostname is not None, hostname or "no se pudo asignar (el acceso por el portal funciona igual)")
         _add_step(job, "Finalizado", True)
 
         job.status = JobStatus.SUCCESS

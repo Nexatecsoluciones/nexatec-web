@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.models.tenancy import SystemAccess, TenantHostname
 from app.models.tenancy_enums import Environment, SystemAccessStatus
 from app.services import cloudflare_dns
+from app.services.hostname_resolution import register_tenant_hostname
 
 
 def _safe(fn, hostname: str) -> None:
@@ -57,3 +58,19 @@ def reexpose_active_only(db: Session, *, tenant_id: uuid.UUID) -> None:
         ).scalar_one_or_none()
         if access is not None and access.status == SystemAccessStatus.ACTIVE:
             _safe(cloudflare_dns.ensure_public_hostname_route, record.hostname)
+
+
+def assign_best_effort(db: Session, *, tenant, system_id: uuid.UUID, environment: Environment, prefix: str = "") -> str | None:
+    """Registra `<prefix><tenant.slug>.nexatecpy.com` y, si Cloudflare esta
+    configurado, lo expone (DNS + ruta del tunnel). Best effort en los dos
+    pasos: un slug invalido para DNS, una colision o un fallo de Cloudflare
+    NUNCA hacen fallar el aprovisionamiento (el acceso por el portal sigue
+    funcionando). Devuelve el hostname registrado o None."""
+    hostname = f"{prefix}{tenant.slug}.nexatecpy.com"
+    try:
+        register_tenant_hostname(db, tenant_id=tenant.id, system_id=system_id, environment=environment,
+                                 hostname=hostname, is_primary=True)
+    except ValueError:
+        return None
+    _safe(cloudflare_dns.ensure_public_hostname_route, hostname)
+    return hostname
