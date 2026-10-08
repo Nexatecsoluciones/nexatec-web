@@ -8,7 +8,7 @@ diga "Activo = Pasivo + Patrimonio" → revisa que en un celular (390 px) la
 página no desborde. Falla si hay errores de JavaScript en consola. Guarda
 capturas en `E2E_SHOTS` (por defecto `apps/web/e2e/shots/`, ignorado por git).
 
-Última corrida (2026-10-08): **17/17 OK (incluye CRM: ganar oportunidad y convertir prospecto), sin errores de consola**. Además `admin-first-login.e2e.mjs` (primer ingreso de superadmin con cambio de contraseña y MFA): 5/5.
+Última corrida (2026-10-08): **17/17 OK (incluye CRM: ganar oportunidad y convertir prospecto), sin errores de consola**. Además `admin-first-login.e2e.mjs` (primer ingreso de superadmin con cambio de contraseña, MFA con QR y editor del sitio sin publicar): 6/6.
 
 ## Cómo correrla
 

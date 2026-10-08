@@ -95,6 +95,7 @@ const ADMIN_NAV = [
   { href: "/admin/productos", label: "Productos" },
   { href: "/admin/demos", label: "Demos" },
   { href: "/admin/planes", label: "Planes" },
+  { href: "/admin/sitio", label: "Sitio web" },
   { href: "/admin/pagos", label: "Pagos" },
   { href: "/admin/jobs", label: "Jobs" },
   { href: "/admin/estado", label: "Estado" },

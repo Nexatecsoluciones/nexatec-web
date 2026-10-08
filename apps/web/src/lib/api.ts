@@ -28,7 +28,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let detail = res.statusText;
     try {
       const body = await res.json();
-      detail = body.detail ?? detail;
+      // 422 de validacion: lista de {loc, msg} -> texto legible.
+      detail = Array.isArray(body.detail)
+        ? body.detail.map((d: { loc?: (string | number)[]; msg?: string }) =>
+            `${(d.loc ?? []).filter((x) => x !== "body" && x !== "content").join(" > ")}: ${d.msg ?? ""}`).join(" · ")
+        : body.detail ?? detail;
     } catch {
       // respuesta sin JSON, mantener statusText
     }
@@ -169,6 +173,12 @@ export interface MySystemOut {
   expires_at: string | null;
 }
 
+export interface SitePageOut<T = import("@/lib/site-content").HomeContent> {
+  slug: string; draft: T; published: T; published_version: number; published_at: string | null;
+  draft_updated_at: string; has_unpublished_changes: boolean; can_edit: boolean;
+}
+export interface SiteVersionOut { version: number; published_at: string; published_by: string | null }
+
 export const api = {
   me: () => request<CurrentUser>("/api/auth/me"),
   login: (email: string, password: string, turnstileToken: string) =>
@@ -285,6 +295,16 @@ export const api = {
   // --- Jobs ---
   listJobs: (statusFilter?: string) =>
     request<JobOut[]>(`/api/admin/jobs${statusFilter ? `?status_filter=${statusFilter}` : ""}`),
+
+  // --- Sitio publico (CMS) ---
+  getSitePage: (slug: string) => request<SitePageOut>(`/api/admin/site/${slug}`),
+  saveSiteDraft: (slug: string, content: unknown) =>
+    request<SitePageOut>(`/api/admin/site/${slug}/draft`, { method: "PUT", body: JSON.stringify({ content }) }),
+  publishSite: (slug: string) => request<SitePageOut>(`/api/admin/site/${slug}/publish`, { method: "POST" }),
+  discardSiteDraft: (slug: string) => request<SitePageOut>(`/api/admin/site/${slug}/discard`, { method: "POST" }),
+  restoreSiteVersion: (slug: string, version: number) =>
+    request<SitePageOut>(`/api/admin/site/${slug}/versions/${version}/restore`, { method: "POST" }),
+  listSiteVersions: (slug: string) => request<SiteVersionOut[]>(`/api/admin/site/${slug}/versions`),
 
   // --- Usuarios ---
   listUsers: (params?: { tenant_id?: string; role?: Role }) => {

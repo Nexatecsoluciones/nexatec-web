@@ -69,6 +69,7 @@ await step("Control Center lleva a configurar MFA", async () => {
 
 await step("alta de MFA con la clave mostrada", async () => {
   await page.getByRole("button", { name: "Configurar" }).click();
+  await page.locator('[aria-label="Codigo QR para la app autenticadora"] svg').waitFor({ timeout: 10000 });
   const shown = await page.locator("p.font-mono").innerText();
   secret = shown.replace(/\s/g, "");
   await page.locator('input[placeholder="Codigo de 6 digitos"]').fill(totp(secret));
@@ -93,6 +94,27 @@ await step("salir y volver a entrar pide codigo", async () => {
   await page.getByRole("button", { name: "Verificar" }).click();
   await page.waitForURL(/\/admin/, { timeout: 15000 });
   await page.screenshot({ path: `${SHOTS}11-admin-dentro.png`, fullPage: true });
+});
+
+await step("editor del sitio: borrador con vista previa, sin publicar", async () => {
+  page.once("dialog", (d) => d.accept());
+  await page.goto(`${BASE}/admin/sitio`);
+  await text("Historial publicado");
+  const marker = `Aviso de prueba E2E ${Date.now()}`;
+  await page.getByLabel(/^Aviso/).fill(marker);
+  await text("Cambios sin guardar");
+  await page.getByRole("button", { name: "Guardar borrador" }).click();
+  await text("Borrador guardado.");
+  await page.getByRole("button", { name: "Vista previa" }).click();
+  await text("Vista previa del borrador");
+  await text(marker);
+  await page.screenshot({ path: `${SHOTS}12-sitio-preview.png`, fullPage: true });
+  // El borrador NO se ve en el sitio publico.
+  const pub = await page.request.get(`${BASE}/api/public/site/home`);
+  if ((await pub.text()).includes(marker)) throw new Error("el borrador aparecio en el sitio publico");
+  await page.getByRole("button", { name: "Volver a editar" }).click();
+  await page.getByRole("button", { name: "Descartar" }).click();
+  await text("Borrador descartado.");
 });
 
 await browser.close();
