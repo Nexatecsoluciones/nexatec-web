@@ -56,12 +56,11 @@ export function Button({
 }
 
 export function TopNav({ activePath }: { activePath: string }) {
+  // Navegacion publica: nada del Control Center aca (tiene su propio menu).
   const links = [
-    { href: "/", label: "Soluciones" },
-    { href: "/portal", label: "Portal" },
-    { href: "/admin", label: "Admin" },
-    { href: "/admin/clientes", label: "Clientes" },
-    { href: "/admin/pagos", label: "Pagos" },
+    { href: "/", label: "Inicio" },
+    { href: "/demo", label: "Probar demo" },
+    { href: "/portal", label: "Mis sistemas" },
   ];
 
   return (

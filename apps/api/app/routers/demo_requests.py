@@ -3,8 +3,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, ConfigDict, EmailStr
-from sqlalchemy import select
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from sqlalchemy import cast, func, select
+from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_audit
@@ -15,6 +16,7 @@ from app.services import email as email_service
 from app.models.control_center import DemoRequest
 from app.models.control_center_enums import DemoRequestStatus
 from app.models.control_plane import PasswordResetToken, Tenant, User
+from app.models.system import System
 from app.models.tenancy import TenantUser
 from app.models.tenancy_enums import TenantMemberRole, TenantMemberStatus, TenantStatus
 from app.security.passwords import hash_password
@@ -35,13 +37,20 @@ def _slugify(text: str, fallback: str) -> str:
 router = APIRouter(tags=["demo-requests"])
 
 
+MAX_REQUESTS_PER_EMAIL_PER_DAY = 3
+MAX_REQUESTS_PER_IP_PER_HOUR = 5
+
+
 class DemoRequestCreate(BaseModel):
-    contact_name: str
+    contact_name: str = Field(min_length=2, max_length=200)
     contact_email: EmailStr
-    contact_phone: str | None = None
-    company_name: str | None = None
+    contact_phone: str | None = Field(default=None, max_length=40)
+    company_name: str | None = Field(default=None, max_length=200)
     system_id: uuid.UUID | None = None
-    message: str | None = None
+    message: str | None = Field(default=None, max_length=2000)
+    # Obligatorio: sin aceptar la politica de privacidad no se guarda nada.
+    accept_privacy: bool
+    privacy_version: str = Field(min_length=1, max_length=40)
     turnstile_token: str
 
 
@@ -69,13 +78,30 @@ async def create_demo_request(payload: DemoRequestCreate, request: Request, db: 
     aprovisiona nada por si solo. Solo crea el registro de interes; un
     admin decide si se aprueba (ver approve_demo_request)."""
     client_ip = safe_ip(request.client.host if request.client else None)
+    if not payload.accept_privacy:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Hay que aceptar la politica de privacidad.")
     if not await verify_turnstile_token(payload.turnstile_token, client_ip):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verificacion anti-bot fallida.")
 
+    now = datetime.now(timezone.utc)
+    email = str(payload.contact_email).lower()
+    by_email = db.execute(select(func.count(DemoRequest.id)).where(
+        func.lower(DemoRequest.contact_email) == email, DemoRequest.created_at > now - timedelta(days=1))).scalar_one()
+    by_ip = db.execute(select(func.count(DemoRequest.id)).where(
+        DemoRequest.client_ip == cast(client_ip, INET), DemoRequest.created_at > now - timedelta(hours=1))).scalar_one() if client_ip else 0
+    if by_email >= MAX_REQUESTS_PER_EMAIL_PER_DAY or by_ip >= MAX_REQUESTS_PER_IP_PER_HOUR:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail="Ya recibimos tu pedido. Te vamos a contactar; si es urgente, escribinos por WhatsApp.")
+    if payload.system_id is not None:
+        system = db.get(System, payload.system_id)
+        if system is None or not system.is_active or not system.demo_available or not system.is_public:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Ese sistema no tiene demo disponible.")
+
     demo_request = DemoRequest(
-        contact_name=payload.contact_name, contact_email=payload.contact_email,
+        contact_name=payload.contact_name.strip(), contact_email=email,
         contact_phone=payload.contact_phone, company_name=payload.company_name,
         system_id=payload.system_id, message=payload.message, status=DemoRequestStatus.NEW,
+        privacy_version=payload.privacy_version, privacy_accepted_at=now, client_ip=client_ip,
     )
     db.add(demo_request)
     db.commit()

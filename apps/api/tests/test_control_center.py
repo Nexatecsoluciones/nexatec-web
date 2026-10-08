@@ -51,7 +51,7 @@ def product():
     slug = f"prod-test-{uuid.uuid4().hex[:8]}"
     system = System(
         slug=slug, name="Producto de prueba", short_description="x", category="Test",
-        demo_available=True, is_active=True,
+        demo_available=True, is_active=True, is_public=True,
         config_schema=[
             {"key": "moneda", "label": "Moneda", "type": "select", "required": True, "options": ["PYG", "USD"]},
             {"key": "api_key", "label": "API Key externa", "type": "secret", "required": False},
@@ -245,6 +245,7 @@ def test_demo_request_approval_creates_tenant_and_provisions(admin_client, produ
     create = TestClient(app).post("/api/demo-requests", json={
         "contact_name": "Persona Interesada", "contact_email": f"interesado-{uuid.uuid4().hex[:6]}@example.com",
         "company_name": "Empresa Interesada", "system_id": str(product.id), "turnstile_token": "dev",
+        "accept_privacy": True, "privacy_version": "test",
     })
     assert create.status_code == 201
     request_id = create.json()["id"]
@@ -288,8 +289,9 @@ def test_demo_request_approval_creates_tenant_and_provisions(admin_client, produ
 def test_demo_request_anonymous_cannot_skip_approval(product):
     # Un visitante no puede llamar directo al endpoint de aprobacion.
     create = TestClient(app).post("/api/demo-requests", json={
-        "contact_name": "X", "contact_email": f"x-{uuid.uuid4().hex[:6]}@example.com",
+        "contact_name": "Xavier", "contact_email": f"x-{uuid.uuid4().hex[:6]}@example.com",
         "system_id": str(product.id), "turnstile_token": "dev",
+        "accept_privacy": True, "privacy_version": "test",
     })
     request_id = create.json()["id"]
 
@@ -310,3 +312,51 @@ def test_user_create_rejects_mismatched_role_tenant_combo(admin_client):
         "role": "SUPER_ADMIN", "tenant_id": str(uuid.uuid4()),
     })
     assert resp.status_code == 400
+
+
+def _demo_body(product, email, **extra):
+    return {"contact_name": "Interesado", "contact_email": email, "system_id": str(product.id), "turnstile_token": "dev",
+            "accept_privacy": True, "privacy_version": "2026-10-08", **extra}
+
+
+def test_demo_request_requires_privacy_and_valid_input(product):
+    c = TestClient(app)
+    email = f"priv-{uuid.uuid4().hex[:6]}@example.com"
+    assert c.post("/api/demo-requests", json=_demo_body(product, email, accept_privacy=False)).status_code == 422
+    assert c.post("/api/demo-requests", json=_demo_body(product, email, contact_name="x" * 500)).status_code == 422
+    assert c.post("/api/demo-requests", json=_demo_body(product, email, system_id=str(uuid.uuid4()))).status_code == 422
+    ok = c.post("/api/demo-requests", json=_demo_body(product, email.upper()))
+    assert ok.status_code == 201 and ok.json()["contact_email"] == email
+    db = SessionLocal()
+    row = db.get(DemoRequest, uuid.UUID(ok.json()["id"]))
+    assert row.privacy_version == "2026-10-08" and row.privacy_accepted_at is not None
+    db.delete(row)
+    db.commit()
+    db.close()
+
+
+def test_demo_request_rate_limited_per_email(product):
+    c = TestClient(app)
+    email = f"rate-{uuid.uuid4().hex[:6]}@example.com"
+    codes = [c.post("/api/demo-requests", json=_demo_body(product, email)).status_code for _ in range(4)]
+    assert codes == [201, 201, 201, 429]
+    db = SessionLocal()
+    db.query(DemoRequest).filter(DemoRequest.contact_email == email).delete()
+    db.commit()
+    db.close()
+
+
+def test_demo_request_rate_limited_per_ip(product, monkeypatch):
+    """Con una IP real (no la del cliente de pruebas, que safe_ip descarta):
+    esta rama no se ejercitaba y fallaba en staging (INET = varchar)."""
+    from app.routers import demo_requests as dr
+
+    monkeypatch.setattr(dr, "safe_ip", lambda _value: "203.0.113.7")
+    c = TestClient(app)
+    emails = [f"ip-{i}-{uuid.uuid4().hex[:6]}@example.com" for i in range(6)]
+    codes = [c.post("/api/demo-requests", json=_demo_body(product, e)).status_code for e in emails]
+    assert codes == [201] * 5 + [429]
+    db = SessionLocal()
+    db.query(DemoRequest).filter(DemoRequest.contact_email.in_(emails)).delete(synchronize_session=False)
+    db.commit()
+    db.close()

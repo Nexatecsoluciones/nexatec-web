@@ -42,3 +42,14 @@ cd /home/opc/nexatec-web/apps/api && python scripts/e2e_tenant.py destroy $W/cre
 `destroy` se niega a borrar un tenant cuyo slug no empiece con `e2e-`.
 Requiere que staging use las claves de **prueba** de Turnstile (como hoy);
 con claves reales, el login automatizado no pasa el captcha.
+
+## Sitio público (`apps/web/e2e/public-site.e2e.mjs`)
+
+Home con todas las secciones y WhatsApp correcto, menú público sin enlaces
+del Control Center, aviso de cookies, **pedido de demo real** (exige aceptar
+privacidad y queda registrado con la versión aceptada), páginas legales y
+móvil sin desborde. Uso: `node public-site.e2e.mjs e2e-public-<algo>@example.com`
+y después borrar el pedido:
+`sudo -u postgres psql -d nexatec_control -c "delete from demo_requests where contact_email like 'e2e-public-%@example.com'"`.
+Última corrida: 5/5. Detectó un error 500 real (comparación INET vs texto en
+el límite por IP) que los tests unitarios no cubrían; corregido y con test.

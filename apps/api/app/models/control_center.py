@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -115,6 +115,11 @@ class DemoRequest(Base):
     )
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id"))
     reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    # Version de la politica de privacidad que acepto quien hizo el pedido.
+    privacy_version: Mapped[str | None] = mapped_column(String(40))
+    privacy_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Solo para limitar abuso (pedidos por IP); se valida con safe_ip.
+    client_ip: Mapped[str | None] = mapped_column(INET)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
