@@ -9,6 +9,7 @@ Uso:
     python -m app.cli list-superadmins
     python -m app.cli promote-user <email>
     python -m app.cli disable-user <email>
+    python -m app.cli sweep-expired-demos
 """
 
 import argparse
@@ -23,6 +24,7 @@ from app.core.audit import log_audit
 from app.core.db import SessionLocal
 from app.models.control_plane import User
 from app.security.passwords import WeakPasswordError, hash_password
+from app.routers.demos import sweep_expired_demos
 from app.security.roles import ADMIN_ROLES, Role
 from app.security.session_auth import revoke_all_sessions_for_user
 
@@ -176,6 +178,22 @@ def cmd_disable_user(args: argparse.Namespace) -> int:
         db.close()
 
 
+def cmd_sweep_expired_demos(_args: argparse.Namespace) -> int:
+    """Pensado para correr periodicamente via systemd timer (ver
+    scripts/sweep-expired-demos.sh y docs/RUNBOOK.md) -- no reemplaza el
+    chequeo server-side de expires_at en app/routers/portal.py, que
+    bloquea acceso igual aunque este comando nunca corra. Esto es lo que
+    hace que la demo vencida tambien desaparezca de /portal/my-systems
+    como ACTIVE sin esperar a que alguien intente entrar."""
+    db = SessionLocal()
+    try:
+        count = sweep_expired_demos(db)
+        print(f"Demos expiradas: {count}")
+        return 0
+    finally:
+        db.close()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="CLI administrativo de NEXATEC")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -190,12 +208,15 @@ def main() -> int:
     p_disable = sub.add_parser("disable-user", help="Deshabilita un usuario y revoca sus sesiones")
     p_disable.add_argument("email")
 
+    sub.add_parser("sweep-expired-demos", help="Marca EXPIRED los entitlements de demo vencidos")
+
     args = parser.parse_args()
     handlers = {
         "create-superadmin": cmd_create_superadmin,
         "list-superadmins": cmd_list_superadmins,
         "promote-user": cmd_promote_user,
         "disable-user": cmd_disable_user,
+        "sweep-expired-demos": cmd_sweep_expired_demos,
     }
     return handlers[args.command](args)
 

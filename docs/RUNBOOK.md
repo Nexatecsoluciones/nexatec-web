@@ -8,6 +8,7 @@
 | `nexatec-web-staging.service` | Next.js standalone, `127.0.0.1:4302` |
 | `cloudflared` | Tunnel hacia Cloudflare (instalado por `cloudflared service install`, fuera del control de este repo) |
 | `nexatec-garage.service` | Garage, storage S3-compatible, `127.0.0.1:3900` (S3) / `127.0.0.1:3901` (RPC) |
+| `nexatec-sweep-expired-demos.timer` | Cada 15 min, corre `python -m app.cli sweep-expired-demos` (oneshot `nexatec-sweep-expired-demos.service`) |
 
 Ninguno depende de mantener una sesion SSH abierta (`systemd`, `enabled`,
 sobreviven a un `restart` individual y a boot).
@@ -91,6 +92,26 @@ sudo systemctl stop cloudflared
 
 Para restaurar: `start` en el orden inverso (`cloudflared` no depende de
 que las apps esten arriba, pero conviene levantar API antes que Web).
+
+## Barrido de demos vencidas
+
+`nexatec-sweep-expired-demos.timer` corre cada 15 minutos y marca
+`EXPIRED` cualquier `SystemAccess` de entorno `DEMO` cuyo `expires_at` ya
+paso (ver `sweep_expired_demos` en `app/routers/demos.py`). Esto NO es lo
+que bloquea el acceso -- `app/routers/portal.py` ya rechaza acceso aunque
+este timer nunca haya corrido, comparando `expires_at` en cada request.
+El timer solo mantiene prolijo el estado que ve el admin (y lo que
+devuelve `/portal/my-systems`) sin esperar a que alguien intente entrar.
+
+```bash
+sudo systemctl status nexatec-sweep-expired-demos.timer --no-pager
+sudo systemctl start  nexatec-sweep-expired-demos.service   # disparo manual
+sudo journalctl -u nexatec-sweep-expired-demos.service -n 20 --no-pager
+```
+
+Las unidades (`/etc/systemd/system/nexatec-sweep-expired-demos.{service,timer}`)
+no estan versionadas en el repo (igual que las otras, ver arriba);
+`apps/api/scripts/sweep-expired-demos.sh` es el script que ejecutan.
 
 ## Rotar secrets
 
