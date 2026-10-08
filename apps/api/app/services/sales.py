@@ -190,7 +190,7 @@ def deliver(db: Session, order_id: uuid.UUID, user_id: uuid.UUID | None) -> Sale
         return order  # reintento: no vuelve a descontar
     if order.status != SalesOrderStatus.CONFIRMED:
         raise InvalidTransition(f"No se puede entregar un pedido {order.status.value}.")
-    op = inventory.OpContext(db=db, user_id=user_id, reference=order.number)
+    op = inventory.OpContext(db=db, user_id=user_id, reference=order.number, source="SALES_ORDER")
     for line in _stock_lines(db, order):
         movement = inventory.issue_reserved(op, line.product_id, order.warehouse_id, line.quantity, group_id=order.id)
         line.unit_cost = movement.unit_cost

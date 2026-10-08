@@ -210,6 +210,59 @@ Flujo (`app/services/purchases.py`, API en `/api/erp/{id}/...`):
 - `supplier-payments`: pago con aplicación, anticipo, `apply`, `void`
   (restituye saldos), sin sobrepago; `payables/aging` igual que cobranzas.
 
+## Revisión `5e234767cef5` — contabilidad
+
+| Tabla | Qué es | Reglas en la base |
+|---|---|---|
+| `accounts` | Plan de cuentas (agrupación / imputable) | Código único |
+| `account_mappings` | Qué cuenta usa cada concepto automático (`AR`, `AP`, `INVENTORY`, `COGS`, `VAT_OUTPUT_10`…) | — |
+| `fiscal_periods` | Mes contable `OPEN`/`CLOSED` | Único por año/mes |
+| `journal_entries` / `journal_lines` | Asientos (`AS-000001`) | **Partida doble** verificada al COMMIT (trigger diferido: ≥2 líneas y debe = haber); **inmutables** (trigger); cada línea con un solo lado > 0; una reversión por asiento |
+
+**Asientos automáticos** (`app/services/accounting.py`), siempre en la
+**misma transacción** que la operación — si el asiento no se puede
+registrar (período cerrado, cuenta sin mapear), la operación entera se
+rechaza:
+
+| Operación | Debe | Haber |
+|---|---|---|
+| Recepción de compra | Mercaderías | Mercaderías recibidas a facturar |
+| Entrada/ajuste manual de stock | Mercaderías | Diferencias de inventario |
+| Entrega de pedido de venta | Costo de mercaderías vendidas | Mercaderías |
+| Salida/ajuste manual de stock | Diferencias de inventario | Mercaderías |
+| Factura interna de venta | Deudores por ventas | Ventas (neto) + IVA débito 10% / 5% |
+| Cobro | Caja (efectivo) o Bancos | Deudores (aplicado) + Anticipos de clientes (no aplicado) |
+| Aplicación de anticipo de cliente | Anticipos de clientes | Deudores |
+| Factura de proveedor | Mercaderías recibidas a facturar (con OC) o Gastos generales (sin OC) + IVA crédito fiscal | Proveedores |
+| Pago a proveedor | Proveedores (aplicado) + Anticipos a proveedores (no aplicado) | Caja o Bancos |
+| Anulaciones / reversión de stock | asiento de reversión del original | |
+
+Transferencias entre depósitos no generan asiento (mismo activo).
+
+Plan de cuentas inicial: 25 cuentas genéricas (1 Activo … 6 Gastos) y 16
+mapeos. **Requiere revisión de un contador** antes de producción; se puede
+ampliar (`POST accounting/accounts`) y re-mapear (`PUT accounting/mappings/{concepto}`).
+No se puede desactivar una cuenta que esté mapeada.
+
+API `/api/erp/{id}/accounting/...`: asientos manuales (balanceados, cuentas
+imputables, período abierto) y su reversión — los automáticos **no** se
+revierten a mano, se anula el documento de origen; libro diario
+(`entries`), períodos (`close` / `reopen` con nota, auditado), y
+**informes de gestión**: balance de comprobación, libro mayor por cuenta
+con saldo corrido y paginado, estado de resultados, balance general (con
+el resultado del ejercicio y verificación `activo = pasivo + patrimonio`).
+Cada informe trae el aviso "no reemplaza libros rubricados ni la
+liquidación tributaria".
+
+Test de punta a punta con montos exactos: compra 10 × 11.000 IVA incl. →
+pago → venta 4 × 22.000 → cobro de 100.000 aplicando 88.000. Resultado:
+ventas 80.000, costo 40.000 (costo neto de IVA), resultado 40.000,
+anticipo de cliente 12.000, balance cuadrado.
+
+Limitación conocida: el costo de cada movimiento se redondea a la moneda
+al contabilizarlo; el valor de inventario del kardex (4 decimales) y el de
+la cuenta Mercaderías pueden diferir en unidades de guaraní.
+
 ## Empresa demo ficticia (`app/services/demo_seed.py`)
 
 Al aprovisionar una base de **DEMO** (nunca PRODUCTION) se carga, en una
@@ -234,6 +287,6 @@ de producción arrancan **vacías**.
 - Devoluciones y notas de crédito; PDF imprimible con marca de agua.
 - Integración SIFEN (bloqueada por diseño, ver gate fiscal).
 - Retenciones de IVA/renta en pagos, costos de importación (landed cost), solicitudes y cotizaciones de compra.
-- Contabilidad (asientos automáticos desde todo lo anterior).
+- Cierre anual (traslado de resultados a Resultados acumulados), conciliación bancaria, centros de costo, multimoneda con diferencia de cambio.
 - Historia transaccional en la demo (ventas/compras de 3-6 meses): depende de que existan esos módulos.
 - Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).

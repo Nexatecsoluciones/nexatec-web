@@ -23,7 +23,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.services import inventory
+from app.services import accounting, inventory
 from app.services.receivables import BUCKETS, AllocationInput, Conflict, ReceivablesError, _bucket, local_today
 from app.services.sales import NotFound, _currency, _current_tax_rate, compute_line, next_number
 from app.tenant_models.core import Company, Party, Product, ProductType, Warehouse
@@ -175,7 +175,7 @@ def receive(db: Session, po_id: uuid.UUID, user_id, items: list[ReceiveItem], id
         if product.product_type == ProductType.GOOD and product.tracks_stock:
             unit_cost = (line.line_net / line.quantity).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
             op = inventory.OpContext(
-                db=db, user_id=user_id, reference=po.number,
+                db=db, user_id=user_id, reference=po.number, source="PURCHASE_ORDER",
                 idempotency_key=f"{idempotency_key}:{line.line_no}" if idempotency_key else None,
             )
             inventory.receive(op, line.product_id, po.warehouse_id, item.quantity, unit_cost)
@@ -252,6 +252,7 @@ def register_supplier_invoice(db: Session, *, user_id, supplier_id, supplier_inv
         vat_5=breakdown.vat_5, exempt=breakdown.exempt, created_by_user_id=user_id,
     )
     db.add(invoice)
+    accounting.post_supplier_invoice(db, invoice, user_id)
     return invoice
 
 
@@ -275,6 +276,7 @@ def void_supplier_invoice(db: Session, invoice_id: uuid.UUID, reason: str) -> Su
     inv.balance_due = Decimal(0)
     inv.void_reason = reason
     inv.voided_at = datetime.now(timezone.utc)
+    accounting.reverse_source(db, ("SUPPLIER_INVOICE",), inv.id, None, f"Anulacion factura proveedor {inv.supplier_invoice_number}")
     return inv
 
 
@@ -328,6 +330,7 @@ def post_payment(db: Session, *, user_id, supplier_id, method: PaymentMethod, am
     )
     db.add(payment)
     _apply(db, payment, allocations)
+    accounting.post_supplier_payment(db, payment, payment.amount - payment.unapplied_amount, user_id)
     return payment
 
 
@@ -345,7 +348,9 @@ def apply_payment(db: Session, payment_id: uuid.UUID, allocations: list[Allocati
     payment = _lock_payment(db, payment_id)
     if payment.status != ReceiptStatus.POSTED:
         raise Conflict("El pago esta anulado.")
+    before = payment.unapplied_amount
     _apply(db, payment, allocations)
+    accounting.post_supplier_advance_application(db, payment, before - payment.unapplied_amount, None)
     return payment
 
 
@@ -361,6 +366,8 @@ def void_payment(db: Session, payment_id: uuid.UUID, reason: str) -> SupplierPay
     payment.unapplied_amount = Decimal(0)
     payment.void_reason = reason
     payment.voided_at = datetime.now(timezone.utc)
+    accounting.reverse_source(db, ("SUPPLIER_PAYMENT", "SUPPLIER_PAYMENT_APPLICATION"), payment.id, None,
+                              f"Anulacion pago {payment.number}")
     return payment
 
 

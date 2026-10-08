@@ -62,6 +62,9 @@ class OpContext:
     idempotency_key: str | None = None
     reference: str | None = None
     notes: str | None = None
+    # Que documento origina el movimiento (define la contrapartida contable):
+    # "SALES_ORDER" -> costo de ventas, "PURCHASE_ORDER" -> mercaderias a facturar.
+    source: str | None = None
 
 
 def _qty(value: Decimal) -> Decimal:
@@ -146,6 +149,11 @@ def _movement(op: OpContext, *, mtype: MovementType, product: Product, warehouse
         idempotency_key=op.idempotency_key, notes=op.notes, created_by_user_id=op.user_id,
     )
     op.db.add(m)
+    # Asiento automatico en la MISMA transaccion: si no se puede registrar
+    # (periodo cerrado, cuenta sin mapear) el movimiento tampoco ocurre.
+    from app.services import accounting
+
+    accounting.post_stock_movement(op.db, m, op.source, op.user_id)
     return m
 
 

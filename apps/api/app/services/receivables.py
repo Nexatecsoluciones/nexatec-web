@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.services import accounting
 from app.services.sales import NotFound, SalesError, next_number
 from app.tenant_models.core import Company, Party
 from app.tenant_models.receivables import (
@@ -100,6 +101,7 @@ def invoice_order(db: Session, order_id: uuid.UUID, user_id: uuid.UUID | None) -
         currency=order.currency, total=order.total, balance_due=order.total, created_by_user_id=user_id, **b,
     )
     db.add(invoice)
+    accounting.post_sales_invoice(db, invoice, user_id)
     return invoice
 
 
@@ -116,6 +118,7 @@ def void_invoice(db: Session, invoice_id: uuid.UUID, reason: str) -> SalesInvoic
     invoice.balance_due = Decimal("0")
     invoice.void_reason = reason
     invoice.voided_at = datetime.now(timezone.utc)
+    accounting.reverse_source(db, ("SALES_INVOICE",), invoice.id, None, f"Anulacion factura {invoice.number}")
     return invoice
 
 
@@ -170,6 +173,7 @@ def post_receipt(db: Session, *, user_id: uuid.UUID | None, customer_id: uuid.UU
     )
     db.add(receipt)
     _apply(db, receipt, allocations)
+    accounting.post_customer_receipt(db, receipt, receipt.amount - receipt.unapplied_amount, user_id)
     return receipt
 
 
@@ -188,7 +192,9 @@ def apply_receipt(db: Session, receipt_id: uuid.UUID, allocations: list[Allocati
     receipt = _lock_receipt(db, receipt_id)
     if receipt.status != ReceiptStatus.POSTED:
         raise Conflict("El cobro esta anulado.")
+    before = receipt.unapplied_amount
     _apply(db, receipt, allocations)
+    accounting.post_customer_advance_application(db, receipt, before - receipt.unapplied_amount, None)
     return receipt
 
 
@@ -205,6 +211,8 @@ def void_receipt(db: Session, receipt_id: uuid.UUID, reason: str) -> CustomerRec
     receipt.unapplied_amount = Decimal("0")
     receipt.void_reason = reason
     receipt.voided_at = datetime.now(timezone.utc)
+    accounting.reverse_source(db, ("CUSTOMER_RECEIPT", "CUSTOMER_RECEIPT_APPLICATION"), receipt.id, None,
+                              f"Anulacion cobro {receipt.number}")
     return receipt
 
 

@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.audit import log_audit
 from app.security.erp_context import ErpContext, get_erp_context, require_erp_write
 from app.services import inventory
+from app.services.sales import SalesError
 from app.tenant_models.core import Product, Warehouse
 from app.tenant_models.inventory import MovementType, StockBalance, StockMovement
 
@@ -88,7 +89,9 @@ def _run(ctx: ErpContext, action: str, fn) -> list[StockMovement]:
     try:
         movements = fn()
         ctx.db.commit()
-    except inventory.InventoryError as exc:
+    except (inventory.InventoryError, SalesError) as exc:
+        # SalesError cubre tambien los errores contables (periodo cerrado,
+        # cuenta sin mapear): el asiento se genera en la misma transaccion.
         ctx.db.rollback()
         raise HTTPException(status_code=exc.status_code, detail=exc.message)
     except IntegrityError:
