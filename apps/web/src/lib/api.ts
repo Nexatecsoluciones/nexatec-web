@@ -98,7 +98,16 @@ export interface SystemOut {
 }
 
 export type TenantStatus = "ACTIVE" | "SUSPENDED" | "ARCHIVED";
-export type TenantMemberRole = "CLIENT_ADMIN" | "CLIENT_USER";
+export type TenantMemberRole =
+  | "CLIENT_ADMIN"
+  | "CLIENT_USER"
+  | "MANAGER"
+  | "FINANCE"
+  | "ACCOUNTANT"
+  | "SALES"
+  | "PURCHASING"
+  | "WAREHOUSE"
+  | "AUDITOR";
 export type Environment = "DEMO" | "PRODUCTION";
 export type ProvisioningStatus =
   | "REQUESTED"

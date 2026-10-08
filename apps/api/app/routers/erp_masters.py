@@ -15,7 +15,8 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.audit import log_audit
 from app.core.config import get_settings
-from app.security.erp_context import ErpContext, get_erp_context, require_erp_write
+from app.security.erp_context import ErpContext, get_erp_context, require
+from app.security.erp_permissions import ROLE_LABELS
 from app.services import ruc as ruc_service
 from app.tenant_models.core import (
     Branch,
@@ -79,6 +80,8 @@ class ErpContextOut(BaseModel):
     company_name: str | None
     company_is_fictitious: bool
     member_role: str
+    role_label: str
+    permissions: list[str]
     can_write: bool
     whatsapp_number: str
 
@@ -87,12 +90,13 @@ class ErpContextOut(BaseModel):
 def erp_context(ctx: ErpContext = Depends(get_erp_context)):
     """Lo que necesita la interfaz para armar el encabezado (empresa,
     banner de demo con vencimiento, si mostrar acciones de escritura).
-    `can_write` es solo para la UI: cada endpoint vuelve a validar."""
+    `permissions` es solo para la UI: cada endpoint vuelve a validar."""
     company = ctx.db.get(Company, 1)
     return ErpContextOut(
         system_access_id=ctx.access.id, environment=ctx.access.environment.value, expires_at=ctx.access.expires_at,
         company_name=company.legal_name if company else None,
         company_is_fictitious=bool(company and company.ruc_is_fictitious), member_role=ctx.member_role.value,
+        role_label=ROLE_LABELS.get(ctx.member_role, ctx.member_role.value), permissions=sorted(ctx.permissions),
         can_write=ctx.can_write, whatsapp_number=get_settings().whatsapp_number,
     )
 
@@ -180,12 +184,12 @@ def _validate_ruc_pair(ruc: str | None, dv: str | None) -> None:
 
 
 @router.get("/company", response_model=CompanyOut)
-def get_company(ctx: ErpContext = Depends(get_erp_context)):
+def get_company(ctx: ErpContext = Depends(require("settings:read"))):
     return _get_or_404(ctx, Company, 1)
 
 
 @router.put("/company", response_model=CompanyOut)
-def put_company(payload: CompanyIn, ctx: ErpContext = Depends(require_erp_write)):
+def put_company(payload: CompanyIn, ctx: ErpContext = Depends(require("settings:write"))):
     company = ctx.db.get(Company, 1)
     if company is not None and company.ruc_is_fictitious:
         # La empresa de una demo es ficticia a proposito; no se le puede
@@ -236,12 +240,12 @@ class BranchOut(BaseModel):
 
 
 @router.get("/branches", response_model=list[BranchOut])
-def list_branches(ctx: ErpContext = Depends(get_erp_context)):
+def list_branches(ctx: ErpContext = Depends(require("settings:read"))):
     return ctx.db.execute(select(Branch).order_by(Branch.code)).scalars().all()
 
 
 @router.post("/branches", response_model=BranchOut, status_code=status.HTTP_201_CREATED)
-def create_branch(payload: BranchIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_branch(payload: BranchIn, ctx: ErpContext = Depends(require("settings:write"))):
     branch = Branch(**payload.model_dump())
     ctx.db.add(branch)
     _commit_or_conflict(ctx, "Ya existe una sucursal con ese codigo.")
@@ -250,7 +254,7 @@ def create_branch(payload: BranchIn, ctx: ErpContext = Depends(require_erp_write
 
 
 @router.patch("/branches/{branch_id}", response_model=BranchOut)
-def update_branch(branch_id: uuid.UUID, payload: BranchUpdate, ctx: ErpContext = Depends(require_erp_write)):
+def update_branch(branch_id: uuid.UUID, payload: BranchUpdate, ctx: ErpContext = Depends(require("settings:write"))):
     branch = _get_or_404(ctx, Branch, branch_id)
     updates = payload.model_dump(exclude_unset=True)
     _apply(branch, updates)
@@ -280,12 +284,12 @@ class WarehouseOut(BaseModel):
 
 
 @router.get("/warehouses", response_model=list[WarehouseOut])
-def list_warehouses(ctx: ErpContext = Depends(get_erp_context)):
+def list_warehouses(ctx: ErpContext = Depends(require("settings:read"))):
     return ctx.db.execute(select(Warehouse).order_by(Warehouse.code)).scalars().all()
 
 
 @router.post("/warehouses", response_model=WarehouseOut, status_code=status.HTTP_201_CREATED)
-def create_warehouse(payload: WarehouseIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_warehouse(payload: WarehouseIn, ctx: ErpContext = Depends(require("settings:write"))):
     _get_or_404(ctx, Branch, payload.branch_id)
     warehouse = Warehouse(**payload.model_dump())
     ctx.db.add(warehouse)
@@ -295,7 +299,7 @@ def create_warehouse(payload: WarehouseIn, ctx: ErpContext = Depends(require_erp
 
 
 @router.patch("/warehouses/{warehouse_id}", response_model=WarehouseOut)
-def update_warehouse(warehouse_id: uuid.UUID, payload: WarehouseUpdate, ctx: ErpContext = Depends(require_erp_write)):
+def update_warehouse(warehouse_id: uuid.UUID, payload: WarehouseUpdate, ctx: ErpContext = Depends(require("settings:write"))):
     warehouse = _get_or_404(ctx, Warehouse, warehouse_id)
     updates = payload.model_dump(exclude_unset=True)
     _apply(warehouse, updates)
@@ -320,12 +324,12 @@ class CategoryOut(BaseModel):
 
 
 @router.get("/product-categories", response_model=list[CategoryOut])
-def list_categories(ctx: ErpContext = Depends(get_erp_context)):
+def list_categories(ctx: ErpContext = Depends(require("products:read"))):
     return ctx.db.execute(select(ProductCategory).order_by(ProductCategory.name)).scalars().all()
 
 
 @router.post("/product-categories", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
-def create_category(payload: CategoryIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_category(payload: CategoryIn, ctx: ErpContext = Depends(require("products:write"))):
     if payload.parent_id is not None:
         _get_or_404(ctx, ProductCategory, payload.parent_id)
     category = ProductCategory(**payload.model_dump())
@@ -393,7 +397,7 @@ def _assert_tax_code_exists(ctx: ErpContext, code: str) -> None:
 
 @router.get("/products", response_model=ProductPage)
 def list_products(
-    ctx: ErpContext = Depends(get_erp_context),
+    ctx: ErpContext = Depends(require("products:read")),
     q: str | None = Query(default=None, max_length=100),
     active: bool | None = None,
     limit: int = Query(default=50, ge=1, le=MAX_PAGE),
@@ -411,12 +415,12 @@ def list_products(
 
 
 @router.get("/products/{product_id}", response_model=ProductOut)
-def get_product(product_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_product(product_id: uuid.UUID, ctx: ErpContext = Depends(require("products:read"))):
     return _get_or_404(ctx, Product, product_id)
 
 
 @router.post("/products", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
-def create_product(payload: ProductIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_product(payload: ProductIn, ctx: ErpContext = Depends(require("products:write"))):
     _get_or_404(ctx, UnitOfMeasure, payload.unit_id)
     if payload.category_id is not None:
         _get_or_404(ctx, ProductCategory, payload.category_id)
@@ -429,7 +433,7 @@ def create_product(payload: ProductIn, ctx: ErpContext = Depends(require_erp_wri
 
 
 @router.patch("/products/{product_id}", response_model=ProductOut)
-def update_product(product_id: uuid.UUID, payload: ProductUpdate, ctx: ErpContext = Depends(require_erp_write)):
+def update_product(product_id: uuid.UUID, payload: ProductUpdate, ctx: ErpContext = Depends(require("products:write"))):
     product = _get_or_404(ctx, Product, product_id)
     updates = payload.model_dump(exclude_unset=True)
     if "tax_code" in updates:
@@ -500,7 +504,7 @@ class PartyPage(BaseModel):
 
 @router.get("/parties", response_model=PartyPage)
 def list_parties(
-    ctx: ErpContext = Depends(get_erp_context),
+    ctx: ErpContext = Depends(require("parties:read")),
     q: str | None = Query(default=None, max_length=100),
     role: str | None = Query(default=None, pattern="^(customer|supplier)$"),
     limit: int = Query(default=50, ge=1, le=MAX_PAGE),
@@ -520,12 +524,12 @@ def list_parties(
 
 
 @router.get("/parties/{party_id}", response_model=PartyOut)
-def get_party(party_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_party(party_id: uuid.UUID, ctx: ErpContext = Depends(require("parties:read"))):
     return _get_or_404(ctx, Party, party_id)
 
 
 @router.post("/parties", response_model=PartyOut, status_code=status.HTTP_201_CREATED)
-def create_party(payload: PartyIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_party(payload: PartyIn, ctx: ErpContext = Depends(require("parties:write"))):
     if not (payload.is_customer or payload.is_supplier):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail="Un tercero tiene que ser cliente, proveedor o ambos.")
@@ -540,7 +544,7 @@ def create_party(payload: PartyIn, ctx: ErpContext = Depends(require_erp_write))
 
 
 @router.patch("/parties/{party_id}", response_model=PartyOut)
-def update_party(party_id: uuid.UUID, payload: PartyUpdate, ctx: ErpContext = Depends(require_erp_write)):
+def update_party(party_id: uuid.UUID, payload: PartyUpdate, ctx: ErpContext = Depends(require("parties:write"))):
     party = _get_or_404(ctx, Party, party_id)
     updates = payload.model_dump(exclude_unset=True)
     _apply(party, updates)

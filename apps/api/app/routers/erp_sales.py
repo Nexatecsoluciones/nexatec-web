@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.audit import log_audit
-from app.security.erp_context import ErpContext, get_erp_context, require_erp_write
+from app.security.erp_context import ErpContext, get_erp_context, require
 from app.services import inventory, sales
 from app.tenant_models.sales import PaymentCondition, SalesOrder, SalesOrderStatus
 
@@ -120,34 +120,34 @@ def _run(ctx: ErpContext, action: str, fn) -> SalesOrder:
 
 
 @router.post("/orders", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
-def create_order(payload: OrderIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_order(payload: OrderIn, ctx: ErpContext = Depends(require("sales:write"))):
     return _run(ctx, "ERP_SALES_ORDER_CREATED", lambda: sales.create_order(
         ctx.db, user_id=ctx.user.id, customer_id=payload.customer_id, warehouse_id=payload.warehouse_id,
         payment_condition=payload.payment_condition, lines=_lines(payload.lines), notes=payload.notes))
 
 
 @router.put("/orders/{order_id}/lines", response_model=OrderOut)
-def replace_lines(order_id: uuid.UUID, payload: LinesIn, ctx: ErpContext = Depends(require_erp_write)):
+def replace_lines(order_id: uuid.UUID, payload: LinesIn, ctx: ErpContext = Depends(require("sales:write"))):
     return _run(ctx, "ERP_SALES_ORDER_UPDATED", lambda: sales.replace_lines(ctx.db, order_id, _lines(payload.lines)))
 
 
 @router.post("/orders/{order_id}/confirm", response_model=OrderOut)
-def confirm(order_id: uuid.UUID, ctx: ErpContext = Depends(require_erp_write)):
+def confirm(order_id: uuid.UUID, ctx: ErpContext = Depends(require("sales:write"))):
     return _run(ctx, "ERP_SALES_ORDER_CONFIRMED", lambda: sales.confirm(ctx.db, order_id, ctx.user.id))
 
 
 @router.post("/orders/{order_id}/deliver", response_model=OrderOut)
-def deliver(order_id: uuid.UUID, ctx: ErpContext = Depends(require_erp_write)):
+def deliver(order_id: uuid.UUID, ctx: ErpContext = Depends(require("sales:deliver"))):
     return _run(ctx, "ERP_SALES_ORDER_DELIVERED", lambda: sales.deliver(ctx.db, order_id, ctx.user.id))
 
 
 @router.post("/orders/{order_id}/cancel", response_model=OrderOut)
-def cancel(order_id: uuid.UUID, payload: CancelIn, ctx: ErpContext = Depends(require_erp_write)):
+def cancel(order_id: uuid.UUID, payload: CancelIn, ctx: ErpContext = Depends(require("sales:write"))):
     return _run(ctx, "ERP_SALES_ORDER_CANCELLED", lambda: sales.cancel(ctx.db, order_id, ctx.user.id, payload.reason))
 
 
 @router.get("/orders/{order_id}", response_model=OrderOut)
-def get_order(order_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_order(order_id: uuid.UUID, ctx: ErpContext = Depends(require("sales:read"))):
     order = ctx.db.get(SalesOrder, order_id)
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido no encontrado.")
@@ -156,7 +156,7 @@ def get_order(order_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
 
 @router.get("/orders", response_model=OrderPage)
 def list_orders(
-    ctx: ErpContext = Depends(get_erp_context),
+    ctx: ErpContext = Depends(require("sales:read")),
     status_filter: SalesOrderStatus | None = Query(default=None, alias="status"),
     customer_id: uuid.UUID | None = None,
     number: str | None = Query(default=None, max_length=20),

@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.audit import log_audit
-from app.security.erp_context import ErpContext, get_erp_context, require_erp_write
+from app.security.erp_context import ErpContext, get_erp_context, require
 from app.services import accounting
 from app.services.receivables import local_today
 from app.services.sales import SalesError
@@ -84,12 +84,12 @@ class MappingOut(BaseModel):
 
 
 @router.get("/accounts", response_model=list[AccountOut])
-def list_accounts(ctx: ErpContext = Depends(get_erp_context)):
+def list_accounts(ctx: ErpContext = Depends(require("accounting:read"))):
     return ctx.db.execute(select(Account).order_by(Account.code)).scalars().all()
 
 
 @router.post("/accounts", response_model=AccountOut, status_code=status.HTTP_201_CREATED)
-def create_account(payload: AccountIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_account(payload: AccountIn, ctx: ErpContext = Depends(require("accounting:write"))):
     if payload.parent_id is not None:
         parent = ctx.db.get(Account, payload.parent_id)
         if parent is None or parent.account_type != payload.account_type:
@@ -101,7 +101,7 @@ def create_account(payload: AccountIn, ctx: ErpContext = Depends(require_erp_wri
 
 
 @router.patch("/accounts/{account_id}", response_model=AccountOut)
-def update_account(account_id: uuid.UUID, payload: AccountUpdate, ctx: ErpContext = Depends(require_erp_write)):
+def update_account(account_id: uuid.UUID, payload: AccountUpdate, ctx: ErpContext = Depends(require("accounting:write"))):
     acc = ctx.db.get(Account, account_id)
     if acc is None:
         raise HTTPException(status_code=404, detail="Cuenta no encontrada.")
@@ -117,12 +117,12 @@ def update_account(account_id: uuid.UUID, payload: AccountUpdate, ctx: ErpContex
 
 
 @router.get("/mappings", response_model=list[MappingOut])
-def list_mappings(ctx: ErpContext = Depends(get_erp_context)):
+def list_mappings(ctx: ErpContext = Depends(require("accounting:read"))):
     return ctx.db.execute(select(AccountMapping).order_by(AccountMapping.key)).scalars().all()
 
 
 @router.put("/mappings/{key}", response_model=MappingOut)
-def set_mapping(key: str, payload: MappingIn, ctx: ErpContext = Depends(require_erp_write)):
+def set_mapping(key: str, payload: MappingIn, ctx: ErpContext = Depends(require("accounting:write"))):
     mapping = ctx.db.get(AccountMapping, key)
     if mapping is None:
         raise HTTPException(status_code=404, detail="Concepto inexistente.")
@@ -184,7 +184,7 @@ class EntryPage(BaseModel):
 
 
 @router.post("/entries", response_model=EntryOut, status_code=status.HTTP_201_CREATED)
-def create_manual_entry(payload: EntryIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_manual_entry(payload: EntryIn, ctx: ErpContext = Depends(require("accounting:write"))):
     draft = accounting.EntryDraft(payload.entry_date, payload.description, "MANUAL", None, [
         accounting.Line(ln.account_id, ln.debit, ln.credit, ln.party_id, ln.description) for ln in payload.lines
     ])
@@ -200,7 +200,7 @@ def create_manual_entry(payload: EntryIn, ctx: ErpContext = Depends(require_erp_
 
 
 @router.post("/entries/{entry_id}/reverse", response_model=EntryOut, status_code=status.HTTP_201_CREATED)
-def reverse(entry_id: uuid.UUID, payload: ReverseIn, ctx: ErpContext = Depends(require_erp_write)):
+def reverse(entry_id: uuid.UUID, payload: ReverseIn, ctx: ErpContext = Depends(require("accounting:write"))):
     entry = ctx.db.get(JournalEntry, entry_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Asiento no encontrado.")
@@ -218,7 +218,7 @@ def reverse(entry_id: uuid.UUID, payload: ReverseIn, ctx: ErpContext = Depends(r
 
 
 @router.get("/entries/{entry_id}", response_model=EntryOut)
-def get_entry(entry_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_entry(entry_id: uuid.UUID, ctx: ErpContext = Depends(require("accounting:read"))):
     entry = ctx.db.get(JournalEntry, entry_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Asiento no encontrado.")
@@ -226,7 +226,7 @@ def get_entry(entry_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
 
 
 @router.get("/entries", response_model=EntryPage)
-def list_entries(ctx: ErpContext = Depends(get_erp_context), date_from: date | None = None, date_to: date | None = None,
+def list_entries(ctx: ErpContext = Depends(require("accounting:read")), date_from: date | None = None, date_to: date | None = None,
                  source_type: str | None = Query(default=None, max_length=40), source_id: uuid.UUID | None = None,
                  limit: int = Query(default=50, ge=1, le=MAX_PAGE), offset: int = Query(default=0, ge=0)):
     """Libro diario."""
@@ -261,12 +261,12 @@ class PeriodNoteIn(BaseModel):
 
 
 @router.get("/periods", response_model=list[PeriodOut])
-def list_periods(ctx: ErpContext = Depends(get_erp_context)):
+def list_periods(ctx: ErpContext = Depends(require("accounting:read"))):
     return ctx.db.execute(select(FiscalPeriod).order_by(FiscalPeriod.year.desc(), FiscalPeriod.month.desc())).scalars().all()
 
 
 @router.post("/periods/{year}/{month}/close", response_model=PeriodOut)
-def close_period(year: int, month: int, payload: PeriodNoteIn, ctx: ErpContext = Depends(require_erp_write)):
+def close_period(year: int, month: int, payload: PeriodNoteIn, ctx: ErpContext = Depends(require("accounting:periods"))):
     try:
         p = accounting.set_period_status(ctx.db, year, month, PeriodStatus.CLOSED, ctx.user.id, payload.note)
     except SalesError as exc:
@@ -276,7 +276,7 @@ def close_period(year: int, month: int, payload: PeriodNoteIn, ctx: ErpContext =
 
 
 @router.post("/periods/{year}/{month}/reopen", response_model=PeriodOut)
-def reopen_period(year: int, month: int, payload: PeriodNoteIn, ctx: ErpContext = Depends(require_erp_write)):
+def reopen_period(year: int, month: int, payload: PeriodNoteIn, ctx: ErpContext = Depends(require("accounting:periods"))):
     try:
         p = accounting.set_period_status(ctx.db, year, month, PeriodStatus.OPEN, ctx.user.id, payload.note)
     except SalesError as exc:
@@ -297,7 +297,7 @@ def _range(ctx: ErpContext, date_from: date | None, date_to: date | None) -> tup
 
 
 @router.get("/reports/trial-balance")
-def trial_balance(ctx: ErpContext = Depends(get_erp_context), date_from: date | None = None, date_to: date | None = None):
+def trial_balance(ctx: ErpContext = Depends(require("accounting:read")), date_from: date | None = None, date_to: date | None = None):
     df, dt = _range(ctx, date_from, date_to)
     rows = accounting.trial_balance(ctx.db, df, dt)
     return {"notice": MANAGEMENT_NOTICE, "date_from": df, "date_to": dt, "rows": rows,
@@ -306,7 +306,7 @@ def trial_balance(ctx: ErpContext = Depends(get_erp_context), date_from: date | 
 
 
 @router.get("/reports/ledger/{account_id}")
-def ledger(account_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context), date_from: date | None = None,
+def ledger(account_id: uuid.UUID, ctx: ErpContext = Depends(require("accounting:read")), date_from: date | None = None,
            date_to: date | None = None, limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0)):
     df, dt = _range(ctx, date_from, date_to)
     try:
@@ -316,11 +316,11 @@ def ledger(account_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context), da
 
 
 @router.get("/reports/income-statement")
-def income_statement(ctx: ErpContext = Depends(get_erp_context), date_from: date | None = None, date_to: date | None = None):
+def income_statement(ctx: ErpContext = Depends(require("accounting:read")), date_from: date | None = None, date_to: date | None = None):
     df, dt = _range(ctx, date_from, date_to)
     return {"notice": MANAGEMENT_NOTICE, **accounting.income_statement(ctx.db, df, dt)}
 
 
 @router.get("/reports/balance-sheet")
-def balance_sheet(ctx: ErpContext = Depends(get_erp_context), as_of: date | None = None):
+def balance_sheet(ctx: ErpContext = Depends(require("accounting:read")), as_of: date | None = None):
     return {"notice": MANAGEMENT_NOTICE, **accounting.balance_sheet(ctx.db, as_of or local_today(ctx.db))}

@@ -8,7 +8,7 @@ const LIMIT = 25;
 type Op = "receipts" | "issues" | "adjustments" | "transfers";
 
 export default function InventarioPage() {
-  const { client, ctx } = useErp();
+  const { client, can } = useErp();
   const [productId, setProductId] = useState("");
   const [offset, setOffset] = useState(0);
   const [mOffset, setMOffset] = useState(0);
@@ -58,7 +58,7 @@ export default function InventarioPage() {
       {action.error && <Notice>{action.error}</Notice>}
       {action.message && <Notice kind="ok">{action.message}</Notice>}
 
-      {ctx.can_write && (
+      {can("inventory:write") && (
         <Panel title="Registrar movimiento" className="mb-5">
           <div className="mb-3 flex flex-wrap gap-2">
             {([["receipts", "Entrada"], ["issues", "Salida"], ["adjustments", "Ajuste"], ["transfers", "Transferencia"]] as [Op, string][]).map(([k, l]) => (
@@ -145,7 +145,7 @@ export default function InventarioPage() {
             { header: "Cantidad", cell: (m) => `${m.direction > 0 ? "+" : "-"}${quantity(m.quantity)}`, align: "right" },
             { header: "Costo unit.", cell: (m) => money(m.unit_cost), align: "right" },
             { header: "Referencia", cell: (m) => m.reference ?? m.notes ?? "-" },
-            ...(ctx.can_write ? [{ header: "", cell: (m: Movement) =>
+            ...(can("inventory:write") ? [{ header: "", cell: (m: Movement) =>
               m.movement_type !== "REVERSAL" && !m.reference?.startsWith("OV-") && !m.reference?.startsWith("OC-")
                 ? <SmallButton tone="danger" onClick={() => reverse(m)} disabled={action.busy}>Revertir</SmallButton> : null }] : []),
           ]}

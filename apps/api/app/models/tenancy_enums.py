@@ -12,7 +12,17 @@ class TenantMemberRole(str, enum.Enum):
     app/security/roles.py) que aplica a personal de NEXATEC sin tenant."""
 
     CLIENT_ADMIN = "CLIENT_ADMIN"
+    # Solo lectura de todo (nombre historico).
     CLIENT_USER = "CLIENT_USER"
+    # Roles por funcion dentro de la empresa. La matriz de permisos esta en
+    # app/security/erp_permissions.py.
+    MANAGER = "MANAGER"
+    FINANCE = "FINANCE"
+    SALES = "SALES"
+    PURCHASING = "PURCHASING"
+    WAREHOUSE = "WAREHOUSE"
+    ACCOUNTANT = "ACCOUNTANT"
+    AUDITOR = "AUDITOR"
 
 
 class TenantMemberStatus(str, enum.Enum):

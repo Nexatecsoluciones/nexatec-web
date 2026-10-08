@@ -8,7 +8,7 @@ const LIMIT = 25;
 type Line = { product_id: string; quantity: string; discount_pct: string };
 
 export default function VentasPage() {
-  const { client, ctx } = useErp();
+  const { client, can } = useErp();
   const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -61,7 +61,7 @@ export default function VentasPage() {
       {action.error && <Notice>{action.error}</Notice>}
       {action.message && <Notice kind="ok">{action.message}</Notice>}
 
-      {ctx.can_write && (
+      {can("sales:write") && (
         <Panel title="Nuevo pedido" className="mb-5">
           <form onSubmit={create} className="flex flex-col gap-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -150,12 +150,12 @@ export default function VentasPage() {
                 <p>Neto: {money(o.subtotal_net)} · IVA: {money(o.tax_total)}</p>
                 <p className="text-lg font-bold">Total: {money(o.total)}</p>
               </div>
-              {ctx.can_write && (
+              {(
                 <div className="flex flex-wrap justify-end gap-2">
-                  {o.status === "DRAFT" && <SmallButton tone="primary" disabled={action.busy} onClick={() => act("confirm", undefined, "Pedido confirmado: stock reservado.")}>Confirmar</SmallButton>}
-                  {o.status === "CONFIRMED" && <SmallButton tone="primary" disabled={action.busy} onClick={() => act("deliver", undefined, "Pedido entregado.")}>Entregar</SmallButton>}
-                  {o.status === "DELIVERED" && <SmallButton tone="primary" disabled={action.busy} onClick={() => act("invoice", undefined, "Factura interna emitida (ver Facturas y cobros).")}>Facturar</SmallButton>}
-                  {(o.status === "DRAFT" || o.status === "CONFIRMED") && (
+                  {o.status === "DRAFT" && can("sales:write") && <SmallButton tone="primary" disabled={action.busy} onClick={() => act("confirm", undefined, "Pedido confirmado: stock reservado.")}>Confirmar</SmallButton>}
+                  {o.status === "CONFIRMED" && can("sales:deliver") && <SmallButton tone="primary" disabled={action.busy} onClick={() => act("deliver", undefined, "Pedido entregado.")}>Entregar</SmallButton>}
+                  {o.status === "DELIVERED" && can("receivables:write") && <SmallButton tone="primary" disabled={action.busy} onClick={() => act("invoice", undefined, "Factura interna emitida (ver Facturas y cobros).")}>Facturar</SmallButton>}
+                  {(o.status === "DRAFT" || o.status === "CONFIRMED") && can("sales:write") && (
                     <SmallButton tone="danger" disabled={action.busy} onClick={() => {
                       const reason = window.prompt("Motivo de la cancelacion:");
                       if (reason) act("cancel", { reason }, "Pedido cancelado.");

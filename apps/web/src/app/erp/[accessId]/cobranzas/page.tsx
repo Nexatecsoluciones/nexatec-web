@@ -7,7 +7,7 @@ import { day, label, money, type AgingRow, type Invoice, type Page, type Party, 
 const LIMIT = 25;
 
 export default function CobranzasPage() {
-  const { client, ctx } = useErp();
+  const { client, can } = useErp();
   const [openOnly, setOpenOnly] = useState(true);
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Invoice | null>(null);
@@ -65,7 +65,7 @@ export default function CobranzasPage() {
       {action.error && <Notice>{action.error}</Notice>}
       {action.message && <Notice kind="ok">{action.message}</Notice>}
 
-      {ctx.can_write && (
+      {can("receivables:write") && (
         <Panel title="Registrar cobro" className="mb-5">
           <form onSubmit={postReceipt} className="grid grid-cols-1 gap-3 md:grid-cols-6">
             <Field label="Cliente">
@@ -130,7 +130,7 @@ export default function CobranzasPage() {
                 <dt className="font-bold">Total</dt><dd className="text-right font-bold">{money(selected.total)}</dd>
                 <dt className="text-nx-muted">Saldo</dt><dd className="text-right">{money(selected.balance_due)}</dd>
               </dl>
-              {ctx.can_write && selected.status === "ISSUED" && (
+              {can("receivables:write") && selected.status === "ISSUED" && (
                 <div className="text-right"><SmallButton tone="danger" disabled={action.busy} onClick={() => voidInvoice(selected)}>Anular factura</SmallButton></div>
               )}
             </div>
@@ -167,7 +167,7 @@ export default function CobranzasPage() {
               { header: "Monto", cell: (r) => money(r.amount), align: "right" },
               { header: "Sin aplicar", cell: (r) => money(r.unapplied_amount), align: "right" },
               { header: "Estado", cell: (r) => label(r.status) },
-              ...(ctx.can_write ? [{ header: "", cell: (r: Receipt) => r.status === "POSTED"
+              ...(can("receivables:write") ? [{ header: "", cell: (r: Receipt) => r.status === "POSTED"
                 ? <SmallButton tone="danger" disabled={action.busy} onClick={() => voidReceipt(r)}>Anular</SmallButton> : null }] : []),
             ]}
           />

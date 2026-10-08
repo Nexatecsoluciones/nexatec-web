@@ -9,7 +9,7 @@ const EMPTY_INV = { supplier_id: "", supplier_invoice_number: "", supplier_timbr
   taxable_10: "", vat_10: "", taxable_5: "", vat_5: "", exempt: "" };
 
 export default function PagosPage() {
-  const { client, ctx } = useErp();
+  const { client, can } = useErp();
   const [inv, setInv] = useState(EMPTY_INV);
   const [pay, setPay] = useState({ supplier_id: "", method: "TRANSFER" as PaymentMethod, amount: "", invoice_id: "", reference: "" });
   const action = useAction();
@@ -68,7 +68,7 @@ export default function PagosPage() {
       {action.error && <Notice>{action.error}</Notice>}
       {action.message && <Notice kind="ok">{action.message}</Notice>}
 
-      {ctx.can_write && (
+      {can("payables:write") && (
         <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <Panel title="Registrar factura de proveedor">
             <form onSubmit={register} className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -172,7 +172,7 @@ export default function PagosPage() {
               { header: "Monto", cell: (p) => money(p.amount), align: "right" },
               { header: "Sin aplicar", cell: (p) => money(p.unapplied_amount), align: "right" },
               { header: "Estado", cell: (p) => label(p.status) },
-              ...(ctx.can_write ? [{ header: "", cell: (p: SupplierPayment) => p.status === "POSTED"
+              ...(can("payables:write") ? [{ header: "", cell: (p: SupplierPayment) => p.status === "POSTED"
                 ? <SmallButton tone="danger" disabled={action.busy} onClick={() => voidPayment(p)}>Anular</SmallButton> : null }] : []),
             ]}
           />

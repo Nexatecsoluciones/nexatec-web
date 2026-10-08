@@ -304,3 +304,25 @@ de producción arrancan **vacías**.
 - Cierre anual (traslado de resultados a Resultados acumulados), conciliación bancaria, centros de costo, multimoneda con diferencia de cambio.
 - Historia de 3–6 meses en la demo (requiere permitir fechas pasadas de forma controlada solo en DEMO).
 - Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).
+
+## Roles y permisos dentro de la empresa
+
+Matriz en `apps/api/app/security/erp_permissions.py` (única fuente de
+verdad). Cada endpoint `/api/erp/...` declara su permiso
+(`require("<módulo>:<acción>")`); un test recorre todas las rutas y falla si
+aparece una nueva sin permiso. La interfaz recibe la lista en
+`GET /api/erp/{id}/context` solo para mostrar/ocultar; el servidor revalida.
+
+| Rol | Lee | Escribe |
+|---|---|---|
+| Administrador | todo | todo |
+| Gerencia | todo | productos, terceros, ventas, compras |
+| Finanzas | todo | terceros, facturas/cobros, facturas de proveedor/pagos, contabilidad, cierre de períodos |
+| Contador | todo | contabilidad, cierre de períodos |
+| Ventas | maestros, stock, ventas, cobranzas (no contabilidad, proveedores ni tablero) | terceros, pedidos, entregas |
+| Compras | maestros, stock, compras, cuentas por pagar | productos, terceros, órdenes de compra, recepciones |
+| Depósito | maestros, stock, pedidos y órdenes de compra | movimientos de stock, entregas, recepciones |
+| Consulta / Auditor | todo | nada |
+
+El personal de NEXATEC sigue sin acceso operacional implícito: para entrar
+a los datos de una empresa hay que ser miembro con alguno de estos roles.

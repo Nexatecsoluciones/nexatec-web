@@ -9,7 +9,7 @@ const EMPTY = { legal_name: "", ruc: "", ruc_dv: "", is_customer: true, is_suppl
   payment_terms_days: "0", credit_limit: "0" };
 
 export default function TercerosPage() {
-  const { client, ctx } = useErp();
+  const { client, can } = useErp();
   const [q, setQ] = useState("");
   const [role, setRole] = useState("");
   const [offset, setOffset] = useState(0);
@@ -36,7 +36,7 @@ export default function TercerosPage() {
       {action.error && <Notice>{action.error}</Notice>}
       {action.message && <Notice kind="ok">{action.message}</Notice>}
 
-      {ctx.can_write && (
+      {can("parties:write") && (
         <Panel title="Nuevo tercero" className="mb-5">
           <form onSubmit={create} className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <Field label="Razon social"><Input required minLength={2} value={form.legal_name} onChange={(e) => setForm({ ...form, legal_name: e.target.value })} /></Field>

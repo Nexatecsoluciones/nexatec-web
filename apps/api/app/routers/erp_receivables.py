@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.audit import log_audit
-from app.security.erp_context import ErpContext, get_erp_context, require_erp_write
+from app.security.erp_context import ErpContext, get_erp_context, require
 from app.services import receivables
 from app.services.sales import SalesError
 from app.tenant_models.receivables import (
@@ -161,17 +161,17 @@ def _alloc(items: list[AllocationIn]) -> list[receivables.AllocationInput]:
 
 
 @router.post("/sales/orders/{order_id}/invoice", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
-def invoice_order(order_id: uuid.UUID, ctx: ErpContext = Depends(require_erp_write)):
+def invoice_order(order_id: uuid.UUID, ctx: ErpContext = Depends(require("receivables:write"))):
     return _run(ctx, "ERP_INVOICE_ISSUED", lambda: receivables.invoice_order(ctx.db, order_id, ctx.user.id), "sales_invoice")
 
 
 @router.post("/invoices/{invoice_id}/void", response_model=InvoiceOut)
-def void_invoice(invoice_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require_erp_write)):
+def void_invoice(invoice_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require("receivables:write"))):
     return _run(ctx, "ERP_INVOICE_VOIDED", lambda: receivables.void_invoice(ctx.db, invoice_id, payload.reason), "sales_invoice")
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceOut)
-def get_invoice(invoice_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_invoice(invoice_id: uuid.UUID, ctx: ErpContext = Depends(require("receivables:read"))):
     inv = ctx.db.get(SalesInvoice, invoice_id)
     if inv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura no encontrada.")
@@ -180,7 +180,7 @@ def get_invoice(invoice_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context
 
 @router.get("/invoices", response_model=InvoicePage)
 def list_invoices(
-    ctx: ErpContext = Depends(get_erp_context),
+    ctx: ErpContext = Depends(require("receivables:read")),
     customer_id: uuid.UUID | None = None,
     status_filter: InvoiceStatus | None = Query(default=None, alias="status"),
     open_only: bool = False,
@@ -204,7 +204,7 @@ def list_invoices(
 
 
 @router.post("/receipts", response_model=ReceiptOut, status_code=status.HTTP_201_CREATED)
-def post_receipt(payload: ReceiptIn, ctx: ErpContext = Depends(require_erp_write),
+def post_receipt(payload: ReceiptIn, ctx: ErpContext = Depends(require("receivables:write")),
                  key: str | None = Header(default=None, alias="Idempotency-Key", max_length=100)):
     def fn():
         return receivables.post_receipt(
@@ -226,19 +226,19 @@ def post_receipt(payload: ReceiptIn, ctx: ErpContext = Depends(require_erp_write
 
 
 @router.post("/receipts/{receipt_id}/apply", response_model=ReceiptOut)
-def apply_receipt(receipt_id: uuid.UUID, payload: ApplyIn, ctx: ErpContext = Depends(require_erp_write)):
+def apply_receipt(receipt_id: uuid.UUID, payload: ApplyIn, ctx: ErpContext = Depends(require("receivables:write"))):
     return _run(ctx, "ERP_RECEIPT_APPLIED",
                 lambda: receivables.apply_receipt(ctx.db, receipt_id, _alloc(payload.allocations)), "customer_receipt")
 
 
 @router.post("/receipts/{receipt_id}/void", response_model=ReceiptOut)
-def void_receipt(receipt_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require_erp_write)):
+def void_receipt(receipt_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require("receivables:write"))):
     return _run(ctx, "ERP_RECEIPT_VOIDED", lambda: receivables.void_receipt(ctx.db, receipt_id, payload.reason),
                 "customer_receipt")
 
 
 @router.get("/receipts/{receipt_id}", response_model=ReceiptOut)
-def get_receipt(receipt_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_receipt(receipt_id: uuid.UUID, ctx: ErpContext = Depends(require("receivables:read"))):
     rc = ctx.db.get(CustomerReceipt, receipt_id)
     if rc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cobro no encontrado.")
@@ -247,7 +247,7 @@ def get_receipt(receipt_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context
 
 @router.get("/receipts", response_model=ReceiptPage)
 def list_receipts(
-    ctx: ErpContext = Depends(get_erp_context),
+    ctx: ErpContext = Depends(require("receivables:read")),
     customer_id: uuid.UUID | None = None,
     limit: int = Query(default=50, ge=1, le=MAX_PAGE),
     offset: int = Query(default=0, ge=0),
@@ -264,11 +264,11 @@ def list_receipts(
 
 
 @router.get("/receivables/aging", response_model=list[AgingRow])
-def get_aging(ctx: ErpContext = Depends(get_erp_context), as_of: date | None = None):
+def get_aging(ctx: ErpContext = Depends(require("receivables:read")), as_of: date | None = None):
     return receivables.aging(ctx.db, as_of or receivables.local_today(ctx.db))
 
 
 @router.get("/receivables/customers/{customer_id}/statement", response_model=list[StatementRow])
-def get_statement(customer_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_statement(customer_id: uuid.UUID, ctx: ErpContext = Depends(require("receivables:read"))):
     return receivables.statement(ctx.db, customer_id)
 

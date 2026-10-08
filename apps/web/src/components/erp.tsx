@@ -7,7 +7,7 @@ import { Button, NexatecMark } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError, day, erp, type ErpContext } from "@/lib/erp";
 
-type ErpValue = { ctx: ErpContext; client: ReturnType<typeof erp>; base: string };
+type ErpValue = { ctx: ErpContext; client: ReturnType<typeof erp>; base: string; can: (permission: string) => boolean };
 
 const ErpCtx = createContext<ErpValue | null>(null);
 
@@ -17,16 +17,18 @@ export function useErp(): ErpValue {
   return value;
 }
 
+// `perm`: permiso de lectura que necesita la pantalla (el menu solo muestra
+// lo que el rol puede ver; el servidor igual lo valida en cada endpoint).
 const NAV = [
-  { href: "", label: "Tablero" },
-  { href: "/ventas", label: "Ventas" },
-  { href: "/cobranzas", label: "Facturas y cobros" },
-  { href: "/compras", label: "Compras" },
-  { href: "/pagos", label: "Proveedores y pagos" },
-  { href: "/inventario", label: "Inventario" },
-  { href: "/productos", label: "Productos" },
-  { href: "/terceros", label: "Clientes y proveedores" },
-  { href: "/contabilidad", label: "Contabilidad" },
+  { href: "", label: "Tablero", perm: "dashboard:read" },
+  { href: "/ventas", label: "Ventas", perm: "sales:read" },
+  { href: "/cobranzas", label: "Facturas y cobros", perm: "receivables:read" },
+  { href: "/compras", label: "Compras", perm: "purchases:read" },
+  { href: "/pagos", label: "Proveedores y pagos", perm: "payables:read" },
+  { href: "/inventario", label: "Inventario", perm: "inventory:read" },
+  { href: "/productos", label: "Productos", perm: "products:read" },
+  { href: "/terceros", label: "Clientes y proveedores", perm: "parties:read" },
+  { href: "/contabilidad", label: "Contabilidad", perm: "accounting:read" },
 ];
 
 function daysLeft(iso: string | null): number | null {
@@ -90,8 +92,12 @@ export function ErpShell({ accessId, children }: { accessId: string; children: R
   }
   if (!ctx) return <main className="flex-1 py-20 text-center text-nx-muted">Cargando...</main>;
 
+  const can = (permission: string) => ctx.permissions.includes(permission);
+  const nav = NAV.filter((item) => can(item.perm));
+  const current = NAV.find((item) => (item.href === "" ? pathname === base : pathname.startsWith(`${base}${item.href}`)));
+
   return (
-    <ErpCtx.Provider value={{ ctx, client, base }}>
+    <ErpCtx.Provider value={{ ctx, client, base, can }}>
       <div className="flex min-h-screen flex-1 flex-col lg:flex-row">
         <aside className="border-b border-nx-line bg-black/20 p-4 lg:w-60 lg:border-b-0 lg:border-r">
           <Link href={base} className="mb-5 flex items-center gap-3 px-2">
@@ -104,7 +110,7 @@ export function ErpShell({ accessId, children }: { accessId: string; children: R
             </div>
           </Link>
           <nav className="flex flex-row flex-wrap gap-1 lg:flex-col">
-            {NAV.map((item) => {
+            {nav.map((item) => {
               const href = `${base}${item.href}`;
               const active = item.href === "" ? pathname === base : pathname.startsWith(href);
               return (
@@ -121,14 +127,21 @@ export function ErpShell({ accessId, children }: { accessId: string; children: R
           <header className="flex min-h-[60px] items-center justify-between gap-4 border-b border-nx-line bg-black/10 px-5">
             <div>
               <p className="font-bold">{ctx.company_name ?? "Empresa sin configurar"}</p>
-              <p className="text-xs text-nx-muted">{ctx.can_write ? "Administrador" : "Solo lectura"}</p>
+              <p className="text-xs text-nx-muted">Rol: {ctx.role_label}</p>
             </div>
             <div className="flex items-center gap-2">
               <Link href="/portal" className="text-sm text-nx-muted hover:text-nx-text">Mis sistemas</Link>
               <Button variant="secondary" onClick={logout} className="min-h-[36px] px-4 text-xs">Salir</Button>
             </div>
           </header>
-          <main className="min-w-0 flex-1 p-5 lg:p-8">{children}</main>
+          <main className="min-w-0 flex-1 p-5 lg:p-8">
+            {current && !can(current.perm) ? (
+              <div className="py-16 text-center">
+                <p className="text-lg font-bold">Tu rol ({ctx.role_label}) no tiene acceso a esta seccion.</p>
+                {nav[0] && <Link href={`${base}${nav[0].href}`} className="mt-4 inline-block text-nx-accent">Ir a {nav[0].label}</Link>}
+              </div>
+            ) : children}
+          </main>
         </div>
       </div>
     </ErpCtx.Provider>

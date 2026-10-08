@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.audit import log_audit
-from app.security.erp_context import ErpContext, get_erp_context, require_erp_write
+from app.security.erp_context import ErpContext, get_erp_context, require
 from app.services import inventory, purchases
 from app.services.receivables import AllocationInput, local_today
 from app.services.sales import SalesError
@@ -224,25 +224,25 @@ def _page(ctx: ErpContext, stmt, order_by, limit: int, offset: int):
 
 
 @router.post("/purchases/orders", response_model=POOut, status_code=status.HTTP_201_CREATED)
-def create_po(payload: POIn, ctx: ErpContext = Depends(require_erp_write)):
+def create_po(payload: POIn, ctx: ErpContext = Depends(require("purchases:write"))):
     return _run(ctx, "ERP_PURCHASE_ORDER_CREATED", lambda: purchases.create_po(
         ctx.db, user_id=ctx.user.id, supplier_id=payload.supplier_id, warehouse_id=payload.warehouse_id,
         lines=_po_lines(payload.lines), expected_date=payload.expected_date, notes=payload.notes), "purchase_order")
 
 
 @router.put("/purchases/orders/{po_id}/lines", response_model=POOut)
-def replace_po_lines(po_id: uuid.UUID, payload: POLinesIn, ctx: ErpContext = Depends(require_erp_write)):
+def replace_po_lines(po_id: uuid.UUID, payload: POLinesIn, ctx: ErpContext = Depends(require("purchases:write"))):
     return _run(ctx, "ERP_PURCHASE_ORDER_UPDATED",
                 lambda: purchases.replace_po_lines(ctx.db, po_id, _po_lines(payload.lines)), "purchase_order")
 
 
 @router.post("/purchases/orders/{po_id}/confirm", response_model=POOut)
-def confirm_po(po_id: uuid.UUID, ctx: ErpContext = Depends(require_erp_write)):
+def confirm_po(po_id: uuid.UUID, ctx: ErpContext = Depends(require("purchases:write"))):
     return _run(ctx, "ERP_PURCHASE_ORDER_CONFIRMED", lambda: purchases.confirm_po(ctx.db, po_id), "purchase_order")
 
 
 @router.post("/purchases/orders/{po_id}/receive", response_model=POOut)
-def receive_po(po_id: uuid.UUID, payload: ReceiveIn, ctx: ErpContext = Depends(require_erp_write),
+def receive_po(po_id: uuid.UUID, payload: ReceiveIn, ctx: ErpContext = Depends(require("purchases:receive")),
                key: str | None = Header(default=None, alias="Idempotency-Key", max_length=90)):
     items = [purchases.ReceiveItem(line_no=li.line_no, quantity=li.quantity) for li in payload.lines]
     return _run(ctx, "ERP_PURCHASE_ORDER_RECEIVED",
@@ -250,13 +250,13 @@ def receive_po(po_id: uuid.UUID, payload: ReceiveIn, ctx: ErpContext = Depends(r
 
 
 @router.post("/purchases/orders/{po_id}/close", response_model=POOut)
-def close_po(po_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require_erp_write)):
+def close_po(po_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require("purchases:write"))):
     return _run(ctx, "ERP_PURCHASE_ORDER_CLOSED",
                 lambda: purchases.cancel_or_close_po(ctx.db, po_id, payload.reason), "purchase_order")
 
 
 @router.get("/purchases/orders/{po_id}", response_model=POOut)
-def get_po(po_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_po(po_id: uuid.UUID, ctx: ErpContext = Depends(require("purchases:read"))):
     po = ctx.db.get(PurchaseOrder, po_id)
     if po is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden de compra no encontrada.")
@@ -264,7 +264,7 @@ def get_po(po_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
 
 
 @router.get("/purchases/orders", response_model=POPage)
-def list_pos(ctx: ErpContext = Depends(get_erp_context), supplier_id: uuid.UUID | None = None,
+def list_pos(ctx: ErpContext = Depends(require("purchases:read")), supplier_id: uuid.UUID | None = None,
              status_filter: PurchaseOrderStatus | None = Query(default=None, alias="status"),
              limit: int = Query(default=50, ge=1, le=MAX_PAGE), offset: int = Query(default=0, ge=0)):
     stmt = select(PurchaseOrder)
@@ -280,7 +280,7 @@ def list_pos(ctx: ErpContext = Depends(get_erp_context), supplier_id: uuid.UUID 
 
 
 @router.post("/supplier-invoices", response_model=SupplierInvoiceOut, status_code=status.HTTP_201_CREATED)
-def register_supplier_invoice(payload: SupplierInvoiceIn, ctx: ErpContext = Depends(require_erp_write)):
+def register_supplier_invoice(payload: SupplierInvoiceIn, ctx: ErpContext = Depends(require("payables:write"))):
     b = purchases.Breakdown(taxable_10=payload.taxable_10, vat_10=payload.vat_10, taxable_5=payload.taxable_5,
                             vat_5=payload.vat_5, exempt=payload.exempt)
     return _run(ctx, "ERP_SUPPLIER_INVOICE_REGISTERED", lambda: purchases.register_supplier_invoice(
@@ -291,14 +291,14 @@ def register_supplier_invoice(payload: SupplierInvoiceIn, ctx: ErpContext = Depe
 
 
 @router.post("/supplier-invoices/{invoice_id}/void", response_model=SupplierInvoiceOut)
-def void_supplier_invoice(invoice_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require_erp_write)):
+def void_supplier_invoice(invoice_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require("payables:write"))):
     return _run(ctx, "ERP_SUPPLIER_INVOICE_VOIDED",
                 lambda: purchases.void_supplier_invoice(ctx.db, invoice_id, payload.reason), "supplier_invoice",
                 label=lambda o: o.supplier_invoice_number)
 
 
 @router.get("/supplier-invoices/{invoice_id}", response_model=SupplierInvoiceOut)
-def get_supplier_invoice(invoice_id: uuid.UUID, ctx: ErpContext = Depends(get_erp_context)):
+def get_supplier_invoice(invoice_id: uuid.UUID, ctx: ErpContext = Depends(require("payables:read"))):
     inv = ctx.db.get(SupplierInvoice, invoice_id)
     if inv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura de proveedor no encontrada.")
@@ -306,7 +306,7 @@ def get_supplier_invoice(invoice_id: uuid.UUID, ctx: ErpContext = Depends(get_er
 
 
 @router.get("/supplier-invoices", response_model=SupplierInvoicePage)
-def list_supplier_invoices(ctx: ErpContext = Depends(get_erp_context), supplier_id: uuid.UUID | None = None,
+def list_supplier_invoices(ctx: ErpContext = Depends(require("payables:read")), supplier_id: uuid.UUID | None = None,
                            open_only: bool = False, limit: int = Query(default=50, ge=1, le=MAX_PAGE),
                            offset: int = Query(default=0, ge=0)):
     stmt = select(SupplierInvoice)
@@ -322,7 +322,7 @@ def list_supplier_invoices(ctx: ErpContext = Depends(get_erp_context), supplier_
 
 
 @router.post("/supplier-payments", response_model=PaymentOut, status_code=status.HTTP_201_CREATED)
-def post_payment(payload: PaymentIn, ctx: ErpContext = Depends(require_erp_write),
+def post_payment(payload: PaymentIn, ctx: ErpContext = Depends(require("payables:write")),
                  key: str | None = Header(default=None, alias="Idempotency-Key", max_length=100)):
     def fn():
         return purchases.post_payment(ctx.db, user_id=ctx.user.id, supplier_id=payload.supplier_id,
@@ -340,19 +340,19 @@ def post_payment(payload: PaymentIn, ctx: ErpContext = Depends(require_erp_write
 
 
 @router.post("/supplier-payments/{payment_id}/apply", response_model=PaymentOut)
-def apply_payment(payment_id: uuid.UUID, payload: ApplyIn, ctx: ErpContext = Depends(require_erp_write)):
+def apply_payment(payment_id: uuid.UUID, payload: ApplyIn, ctx: ErpContext = Depends(require("payables:write"))):
     return _run(ctx, "ERP_SUPPLIER_PAYMENT_APPLIED",
                 lambda: purchases.apply_payment(ctx.db, payment_id, _alloc(payload.allocations)), "supplier_payment")
 
 
 @router.post("/supplier-payments/{payment_id}/void", response_model=PaymentOut)
-def void_payment(payment_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require_erp_write)):
+def void_payment(payment_id: uuid.UUID, payload: ReasonIn, ctx: ErpContext = Depends(require("payables:write"))):
     return _run(ctx, "ERP_SUPPLIER_PAYMENT_VOIDED",
                 lambda: purchases.void_payment(ctx.db, payment_id, payload.reason), "supplier_payment")
 
 
 @router.get("/supplier-payments", response_model=PaymentPage)
-def list_payments(ctx: ErpContext = Depends(get_erp_context), supplier_id: uuid.UUID | None = None,
+def list_payments(ctx: ErpContext = Depends(require("payables:read")), supplier_id: uuid.UUID | None = None,
                   limit: int = Query(default=50, ge=1, le=MAX_PAGE), offset: int = Query(default=0, ge=0)):
     stmt = select(SupplierPayment)
     if supplier_id:
@@ -362,5 +362,5 @@ def list_payments(ctx: ErpContext = Depends(get_erp_context), supplier_id: uuid.
 
 
 @router.get("/payables/aging", response_model=list[APAgingRow])
-def get_ap_aging(ctx: ErpContext = Depends(get_erp_context), as_of: date | None = None):
+def get_ap_aging(ctx: ErpContext = Depends(require("payables:read")), as_of: date | None = None):
     return purchases.ap_aging(ctx.db, as_of or local_today(ctx.db))

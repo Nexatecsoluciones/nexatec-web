@@ -8,7 +8,7 @@ const LIMIT = 25;
 type Line = { product_id: string; quantity: string; unit_price: string };
 
 export default function ComprasPage() {
-  const { client, ctx } = useErp();
+  const { client, can } = useErp();
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState({ supplier_id: "", warehouse_id: "" });
@@ -57,7 +57,7 @@ export default function ComprasPage() {
       {action.error && <Notice>{action.error}</Notice>}
       {action.message && <Notice kind="ok">{action.message}</Notice>}
 
-      {ctx.can_write && (
+      {can("purchases:write") && (
         <Panel title="Nueva orden de compra" className="mb-5">
           <form onSubmit={create} className="flex flex-col gap-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -122,7 +122,7 @@ export default function ComprasPage() {
                   { header: "Recibido", cell: (l) => quantity(l.quantity_received), align: "right" },
                   { header: "Precio", cell: (l) => money(l.unit_price), align: "right" },
                   { header: "Total", cell: (l) => money(l.line_total), align: "right" },
-                  ...(ctx.can_write && ["CONFIRMED", "PARTIALLY_RECEIVED"].includes(o.status) ? [{
+                  ...(can("purchases:receive") && ["CONFIRMED", "PARTIALLY_RECEIVED"].includes(o.status) ? [{
                     header: "Recibir", cell: (l: PurchaseOrder["lines"][number]) => Number(l.quantity_received) < Number(l.quantity) ? (
                       <Input type="number" min="0" step="0.0001" className="w-24"
                         max={String(Number(l.quantity) - Number(l.quantity_received))}
@@ -132,10 +132,10 @@ export default function ComprasPage() {
                 ]}
               />
               <p className="text-right font-bold">Total: {money(o.total)}</p>
-              {ctx.can_write && (
+              {(
                 <div className="flex flex-wrap justify-end gap-2">
-                  {o.status === "DRAFT" && <SmallButton tone="primary" disabled={action.busy} onClick={() => act("confirm", undefined, "Orden confirmada.")}>Confirmar</SmallButton>}
-                  {["CONFIRMED", "PARTIALLY_RECEIVED"].includes(o.status) && (
+                  {o.status === "DRAFT" && can("purchases:write") && <SmallButton tone="primary" disabled={action.busy} onClick={() => act("confirm", undefined, "Orden confirmada.")}>Confirmar</SmallButton>}
+                  {["CONFIRMED", "PARTIALLY_RECEIVED"].includes(o.status) && can("purchases:receive") && (
                     <>
                       <SmallButton disabled={action.busy} onClick={() => setReceiveQty(Object.fromEntries(pending.map((l) => [l.line_no, String(Number(l.quantity) - Number(l.quantity_received))])))}>Completar pendientes</SmallButton>
                       <SmallButton tone="primary" disabled={action.busy} onClick={() => {
@@ -144,7 +144,7 @@ export default function ComprasPage() {
                       }}>Registrar recepcion</SmallButton>
                     </>
                   )}
-                  {!["RECEIVED", "CLOSED", "CANCELLED"].includes(o.status) && (
+                  {!["RECEIVED", "CLOSED", "CANCELLED"].includes(o.status) && can("purchases:write") && (
                     <SmallButton tone="danger" disabled={action.busy} onClick={() => {
                       const reason = window.prompt("Motivo para cerrar/cancelar la orden:");
                       if (reason) act("close", { reason }, "Orden cerrada.");

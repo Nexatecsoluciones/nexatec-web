@@ -15,7 +15,9 @@ export interface ErpContext {
   expires_at: string | null;
   company_name: string | null;
   company_is_fictitious: boolean;
-  member_role: "CLIENT_ADMIN" | "CLIENT_USER";
+  member_role: string;
+  role_label: string;
+  permissions: string[];
   can_write: boolean;
   whatsapp_number: string;
 }

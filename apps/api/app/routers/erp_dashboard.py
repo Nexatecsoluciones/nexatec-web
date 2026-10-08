@@ -9,7 +9,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import Date, cast, func, select
 
-from app.security.erp_context import ErpContext, get_erp_context
+from app.security.erp_context import ErpContext, get_erp_context, require
 from app.services.receivables import local_today
 from app.tenant_models.accounting import AccountMapping, JournalLine
 from app.tenant_models.core import Product
@@ -39,7 +39,7 @@ DEFINITIONS = {
 
 
 @router.get("/dashboard")
-def dashboard(ctx: ErpContext = Depends(get_erp_context), date_from: date | None = None, date_to: date | None = None):
+def dashboard(ctx: ErpContext = Depends(require("dashboard:read")), date_from: date | None = None, date_to: date | None = None):
     db = ctx.db
     today = local_today(db)
     df = date_from or today.replace(day=1)

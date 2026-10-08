@@ -8,7 +8,7 @@ const LIMIT = 25;
 const EMPTY = { sku: "", name: "", product_type: "GOOD", unit_id: "", tax_code: "IVA10", sale_price: "", category_id: "" };
 
 export default function ProductosPage() {
-  const { client, ctx } = useErp();
+  const { client, can } = useErp();
   const [q, setQ] = useState("");
   const [offset, setOffset] = useState(0);
   const [form, setForm] = useState(EMPTY);
@@ -47,7 +47,7 @@ export default function ProductosPage() {
       {action.error && <Notice>{action.error}</Notice>}
       {action.message && <Notice kind="ok">{action.message}</Notice>}
 
-      {ctx.can_write && (
+      {can("products:write") && (
         <Panel title="Nuevo producto" className="mb-5">
           <form onSubmit={create} className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <Field label="SKU"><Input required value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} /></Field>
@@ -98,7 +98,7 @@ export default function ProductosPage() {
             { header: "IVA", cell: (p) => p.tax_code },
             { header: "Precio", cell: (p) => money(p.sale_price), align: "right" },
             { header: "Estado", cell: (p) => (p.is_active ? "Activo" : "Inactivo") },
-            ...(ctx.can_write ? [{ header: "", cell: (p: Product) => (
+            ...(can("products:write") ? [{ header: "", cell: (p: Product) => (
               <SmallButton onClick={() => toggle(p)} disabled={action.busy}>{p.is_active ? "Desactivar" : "Activar"}</SmallButton>
             ) }] : []),
           ]}

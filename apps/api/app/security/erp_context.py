@@ -28,6 +28,7 @@ from app.models.tenancy_enums import (
     TenantMemberStatus,
     TenantStatus,
 )
+from app.security.erp_permissions import permissions_for
 from app.security.session_auth import CurrentUser, get_current_user
 from app.services.tenant_db_manager import TenantDatabaseUnavailable, tenant_db_manager
 
@@ -42,8 +43,16 @@ class ErpContext:
     member_role: TenantMemberRole
 
     @property
+    def permissions(self) -> frozenset[str]:
+        return permissions_for(self.member_role)
+
+    def can(self, permission: str) -> bool:
+        return permission in self.permissions
+
+    @property
     def can_write(self) -> bool:
-        return self.member_role == TenantMemberRole.CLIENT_ADMIN
+        """Compatibilidad: True si puede escribir en ALGUN modulo."""
+        return any(p.endswith((":write", ":deliver", ":receive", ":periods")) for p in self.permissions)
 
 
 def _not_found() -> HTTPException:
@@ -104,7 +113,13 @@ def get_erp_context(
         session.close()
 
 
-def require_erp_write(ctx: ErpContext = Depends(get_erp_context)) -> ErpContext:
-    if not ctx.can_write:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenes permiso para modificar datos.")
-    return ctx
+def require(permission: str):
+    """Dependencia por endpoint: exige un permiso de la matriz
+    (app/security/erp_permissions.py). 403 si el rol no lo tiene."""
+
+    def dep(ctx: ErpContext = Depends(get_erp_context)) -> ErpContext:
+        if not ctx.can(permission):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tu rol no tiene permiso para esta accion.")
+        return ctx
+
+    return dep

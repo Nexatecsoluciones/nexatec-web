@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.audit import log_audit
-from app.security.erp_context import ErpContext, get_erp_context, require_erp_write
+from app.security.erp_context import ErpContext, get_erp_context, require
 from app.services import inventory
 from app.services.sales import SalesError
 from app.tenant_models.core import Product, Warehouse
@@ -113,21 +113,21 @@ def _op(ctx: ErpContext, key: str | None, reference: str | None = None, notes: s
 
 
 @router.post("/receipts", response_model=list[MovementOut], status_code=status.HTTP_201_CREATED)
-def post_receipt(payload: ReceiptIn, ctx: ErpContext = Depends(require_erp_write), key: str | None = IdempotencyKey):
+def post_receipt(payload: ReceiptIn, ctx: ErpContext = Depends(require("inventory:write")), key: str | None = IdempotencyKey):
     op = _op(ctx, key, payload.reference, payload.notes)
     return _run(ctx, "ERP_STOCK_RECEIPT", lambda: inventory.receive(
         op, payload.product_id, payload.warehouse_id, payload.quantity, payload.unit_cost))
 
 
 @router.post("/issues", response_model=list[MovementOut], status_code=status.HTTP_201_CREATED)
-def post_issue(payload: IssueIn, ctx: ErpContext = Depends(require_erp_write), key: str | None = IdempotencyKey):
+def post_issue(payload: IssueIn, ctx: ErpContext = Depends(require("inventory:write")), key: str | None = IdempotencyKey):
     op = _op(ctx, key, payload.reference, payload.notes)
     return _run(ctx, "ERP_STOCK_ISSUE", lambda: inventory.issue(
         op, payload.product_id, payload.warehouse_id, payload.quantity))
 
 
 @router.post("/adjustments", response_model=list[MovementOut], status_code=status.HTTP_201_CREATED)
-def post_adjustment(payload: AdjustmentIn, ctx: ErpContext = Depends(require_erp_write), key: str | None = IdempotencyKey):
+def post_adjustment(payload: AdjustmentIn, ctx: ErpContext = Depends(require("inventory:write")), key: str | None = IdempotencyKey):
     op = _op(ctx, key, notes=payload.reason)
     direction = 1 if payload.direction == "IN" else -1
     return _run(ctx, "ERP_STOCK_ADJUSTMENT", lambda: inventory.adjust(
@@ -135,14 +135,14 @@ def post_adjustment(payload: AdjustmentIn, ctx: ErpContext = Depends(require_erp
 
 
 @router.post("/transfers", response_model=list[MovementOut], status_code=status.HTTP_201_CREATED)
-def post_transfer(payload: TransferIn, ctx: ErpContext = Depends(require_erp_write), key: str | None = IdempotencyKey):
+def post_transfer(payload: TransferIn, ctx: ErpContext = Depends(require("inventory:write")), key: str | None = IdempotencyKey):
     op = _op(ctx, key, payload.reference)
     return _run(ctx, "ERP_STOCK_TRANSFER", lambda: inventory.transfer(
         op, payload.product_id, payload.from_warehouse_id, payload.to_warehouse_id, payload.quantity))
 
 
 @router.post("/movements/{movement_id}/reverse", response_model=list[MovementOut], status_code=status.HTTP_201_CREATED)
-def post_reverse(movement_id: uuid.UUID, payload: ReverseIn, ctx: ErpContext = Depends(require_erp_write),
+def post_reverse(movement_id: uuid.UUID, payload: ReverseIn, ctx: ErpContext = Depends(require("inventory:write")),
                  key: str | None = IdempotencyKey):
     op = _op(ctx, key, notes=payload.reason)
     return _run(ctx, "ERP_STOCK_REVERSAL", lambda: inventory.reverse(op, movement_id))
@@ -155,7 +155,7 @@ class MovementPage(BaseModel):
 
 @router.get("/movements", response_model=MovementPage)
 def list_movements(
-    ctx: ErpContext = Depends(get_erp_context),
+    ctx: ErpContext = Depends(require("inventory:read")),
     product_id: uuid.UUID | None = None,
     warehouse_id: uuid.UUID | None = None,
     date_from: datetime | None = None,
@@ -200,7 +200,7 @@ class BalancePage(BaseModel):
 
 @router.get("/balances", response_model=BalancePage)
 def list_balances(
-    ctx: ErpContext = Depends(get_erp_context),
+    ctx: ErpContext = Depends(require("inventory:read")),
     product_id: uuid.UUID | None = None,
     warehouse_id: uuid.UUID | None = None,
     only_positive: bool = False,

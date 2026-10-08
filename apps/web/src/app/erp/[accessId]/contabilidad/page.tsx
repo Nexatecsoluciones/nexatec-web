@@ -34,7 +34,7 @@ function AmountList({ title, rows, total }: { title: string; rows: Amount[]; tot
 }
 
 export default function ContabilidadPage() {
-  const { client, ctx } = useErp();
+  const { client, can } = useErp();
   const [tab, setTab] = useState<Tab>("comprobacion");
   const [range, setRange] = useState({ from: firstOfYear(), to: todayIso() });
   const [jOffset, setJOffset] = useState(0);
@@ -133,7 +133,7 @@ export default function ContabilidadPage() {
 
       {tab === "diario" && (
         <>
-          {ctx.can_write && (
+          {can("accounting:write") && (
             <Panel title="Asiento manual (simple)" className="mb-5">
               <form onSubmit={postManual} className="grid grid-cols-1 gap-3 md:grid-cols-6">
                 <Field label="Fecha"><Input type="date" required value={manual.entry_date} onChange={(e) => setManual({ ...manual, entry_date: e.target.value })} /></Field>
@@ -153,7 +153,7 @@ export default function ContabilidadPage() {
               <div key={e.id} className="mb-4 border-b border-nx-line pb-3">
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span><strong>{e.number}</strong> · {day(e.entry_date)} · {e.description} <span className="text-nx-muted">({SOURCE[e.source_type] ?? e.source_type})</span></span>
-                  {ctx.can_write && e.source_type === "MANUAL" && !e.reverses_entry_id && (
+                  {can("accounting:write") && e.source_type === "MANUAL" && !e.reverses_entry_id && (
                     <SmallButton tone="danger" disabled={action.busy} onClick={() => reverse(e)}>Revertir</SmallButton>
                   )}
                 </div>
@@ -177,7 +177,7 @@ export default function ContabilidadPage() {
             { header: "Periodo", cell: (p) => `${String(p.month).padStart(2, "0")}/${p.year}` },
             { header: "Estado", cell: (p) => (p.status === "OPEN" ? "Abierto" : "Cerrado") },
             { header: "Nota", cell: (p) => p.note ?? "-" },
-            ...(ctx.can_write ? [{ header: "", cell: (p: Period) => (
+            ...(can("accounting:periods") ? [{ header: "", cell: (p: Period) => (
               <SmallButton tone={p.status === "OPEN" ? "danger" : "default"} disabled={action.busy} onClick={() => togglePeriod(p)}>
                 {p.status === "OPEN" ? "Cerrar" : "Reabrir"}
               </SmallButton>

@@ -3,7 +3,21 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { AdminLayout, Button, Card } from "@/components/ui";
 import { useAdminGuard } from "@/lib/useAdminGuard";
-import { api, ApiError, type SystemOut, type TenantOut, type TenantUserOut } from "@/lib/api";
+import { api, ApiError, type SystemOut, type TenantMemberRole, type TenantOut, type TenantUserOut } from "@/lib/api";
+
+// Roles dentro de la empresa del cliente; la matriz de permisos vive en el
+// servidor (apps/api/app/security/erp_permissions.py).
+const MEMBER_ROLES: [TenantMemberRole, string][] = [
+  ["CLIENT_USER", "Consulta (solo lectura)"],
+  ["CLIENT_ADMIN", "Administrador"],
+  ["MANAGER", "Gerencia"],
+  ["FINANCE", "Finanzas"],
+  ["ACCOUNTANT", "Contador"],
+  ["SALES", "Ventas"],
+  ["PURCHASING", "Compras"],
+  ["WAREHOUSE", "Deposito"],
+  ["AUDITOR", "Auditor"],
+];
 
 export default function AdminClientesPage() {
   const { user, loading, forbidden, logout } = useAdminGuard();
@@ -67,7 +81,7 @@ export default function AdminClientesPage() {
     try {
       const result = await api.assignTenantUser(selectedTenant.id, {
         email: String(form.get("email")),
-        role: form.get("role") === "CLIENT_ADMIN" ? "CLIENT_ADMIN" : "CLIENT_USER",
+        role: (MEMBER_ROLES.some(([v]) => v === form.get("role")) ? form.get("role") : "CLIENT_USER") as TenantMemberRole,
         create_if_missing: true,
       });
       e.currentTarget.reset();
@@ -196,8 +210,7 @@ export default function AdminClientesPage() {
                   <input name="email" type="email" placeholder="email@cliente.com" required
                     className="flex-1 rounded-xl border border-nx-line bg-white/5 px-4 py-2 text-sm outline-none focus:border-nx-accent" />
                   <select name="role" className="rounded-xl border border-nx-line bg-white/5 px-3 py-2 text-sm">
-                    <option value="CLIENT_USER">CLIENT_USER</option>
-                    <option value="CLIENT_ADMIN">CLIENT_ADMIN</option>
+                    {MEMBER_ROLES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
                   </select>
                   <Button type="submit" variant="secondary">Asignar</Button>
                 </form>
