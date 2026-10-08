@@ -12,6 +12,7 @@ valido pero sin tenant" (evita enumeracion de subdominios).
 import re
 import uuid
 
+from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -89,6 +90,27 @@ def resolve_hostname(db: Session, raw_host: str | None) -> TenantHostname | None
     return db.execute(
         select(TenantHostname).where(TenantHostname.hostname == host)
     ).scalar_one_or_none()
+
+
+def public_host_from_request(request: Request) -> str | None:
+    """El hostname publico real que el navegador uso para esta request.
+
+    `X-Forwarded-Host` es seteado por el BFF same-origin de Next.js
+    (apps/web/src/app/api/[...path]/route.ts) a partir del `Host` que
+    llego de Cloudflare -- es el UNICO camino de produccion. Solo se cae a
+    `Host` directo (lo que ve uvicorn) para desarrollo local y tests que
+    le pegan a la API sin pasar por el BFF. uvicorn corre con
+    `--forwarded-allow-ips=127.0.0.1` y 4301 solo escucha en loopback, asi
+    que ninguno de estos dos headers puede llegar spoofeado desde
+    internet -- igual se sanean los dos exactamente igual en
+    `normalize_host`, por las dudas."""
+    return request.headers.get("x-forwarded-host") or request.headers.get("host")
+
+
+def resolve_request_hostname(db: Session, request: Request) -> TenantHostname | None:
+    """Atajo para usar como dependency de FastAPI: resuelve el tenant de
+    la request actual a partir de su hostname publico real."""
+    return resolve_hostname(db, public_host_from_request(request))
 
 
 def register_tenant_hostname(

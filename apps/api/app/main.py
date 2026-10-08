@@ -17,6 +17,7 @@ from app.routers import (
     password_reset,
     payments,
     portal,
+    public_hostname,
     service_registry,
     system_access,
     system_status,
@@ -92,6 +93,7 @@ app.include_router(tenants.router)
 app.include_router(system_access.router)
 app.include_router(demos.router)
 app.include_router(portal.router)
+app.include_router(public_hostname.router)
 app.include_router(media.router)
 app.include_router(payments.router)
 app.include_router(system_status.router)
