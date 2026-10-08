@@ -121,7 +121,7 @@ class Settings(BaseSettings):
 
     # Contacto comercial (CTA "Solicitar mi sistema por WhatsApp"). Solo
     # digitos, formato internacional sin "+".
-    whatsapp_number: str = Field(default="595971205040", alias="NEXATEC_WHATSAPP_NUMBER", pattern=r"^[0-9]{8,15}$")
+    whatsapp_number: str = Field(default="595981813971", alias="NEXATEC_WHATSAPP_NUMBER", pattern=r"^[0-9]{8,15}$")
 
     @property
     def cloudflare_configured(self) -> bool:

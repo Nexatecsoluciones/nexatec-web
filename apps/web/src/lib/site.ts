@@ -3,7 +3,7 @@
 // empresa (razon social, RUC, domicilio) NO se completan hasta tenerlos
 // verificados: los campos vacios no se muestran.
 
-export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "595971205040";
+export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "595981813971";
 export const CONTACT_EMAIL = "nexasolucionestec@gmail.com";
 
 export const LEGAL = {

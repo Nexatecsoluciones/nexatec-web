@@ -25,7 +25,7 @@ await step("home con secciones y CTA", async () => {
   await text("Transformamos tu PyME");
   for (const t of ["Que resuelve el ERP", "Como funciona la demo", "NEXATEC Cloud", "Preguntas frecuentes"]) await text(t);
   const wa = await page.locator('a[href^="https://wa.me/"]').first().getAttribute("href");
-  if (!wa.includes("595971205040")) throw new Error(`WhatsApp inesperado: ${wa}`);
+  if (!wa.includes("595981813971")) throw new Error(`WhatsApp inesperado: ${wa}`);
   if (await page.locator('a[href="/admin/clientes"]').count()) throw new Error("menu publico expone el Control Center");
   await page.screenshot({ path: `${SHOTS}20-home.png`, fullPage: true });
 });
