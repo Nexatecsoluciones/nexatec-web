@@ -122,18 +122,32 @@ antes de asumir que ya hay una experiencia de usuario por subdominio.
   con el hostname correcto -- crear -> `ensure`, suspender -> `remove`,
   renovar -> `ensure`, expirar -> `remove`.
 
+## Qué se conectó después (corte 7)
+
+- Lógica de exposición movida a `app/services/hostname_exposure.py`
+  (`unexpose`, `reexpose`, `reexpose_active_only`), usada por los
+  endpoints de demos y por el PATCH de tenant.
+- `PATCH /api/admin/tenants/{id}` con cambio de `status`:
+  `SUSPENDED`/`ARCHIVED` retira de Cloudflare TODOS los hostnames del
+  tenant; volver a `ACTIVE` re-expone solo los que tienen su
+  `SystemAccess` en `ACTIVE` (una demo que venció mientras el tenant
+  estaba suspendido no vuelve a resolver).
+- El read-modify-write del ingress del túnel está serializado con
+  `pg_advisory_lock` (clave fija en `cloudflare_dns._TUNNEL_INGRESS_LOCK_KEY`)
+  -- funciona entre la API y el timer de barrido, que son procesos
+  distintos. Test `test_tunnel_ingress_lock_blocks_other_connections`.
+
+## Decisiones tomadas (no son pendientes)
+
+- Al convertir demo -> producción, el hostname de DEMO **sigue vivo** junto
+  al de producción. Es deliberado: el cliente puede seguir usando la demo
+  durante la transición. Si se quiere cortar, el admin suspende la demo
+  (`POST /api/admin/demos/{id}/suspend`), que ya retira su hostname.
+
 ## Qué falta (no inventar que ya funciona)
 
-1. El `PUT` de la configuración del tunnel reemplaza el ingress completo
-   -- dos demos creándose/expirando al mismo tiempo podrían pisarse la
-   regla una a la otra (read-modify-write sin lock). Aceptable por ahora
-   (volumen bajo, admin-driven, y es idempotente asi que un reintento lo
-   arregla), pero no es seguro bajo alta concurrencia real.
-2. `convert_demo_to_production` no saca el hostname de DEMO al crear el
-   de PRODUCTION -- quedan los dos activos en Cloudflare (`demo-x` y `x`)
-   simultaneamente. Puede ser lo deseado (la demo sigue viva aparte) o no
-   -- no se definio todavia la politica de que pasa con el entitlement de
-   DEMO despues de convertir a produccion.
-3. Nadie purga `tenant_hostnames` ni Cloudflare cuando un tenant se borra
-   o se archiva (`Tenant.deleted_at`/`TenantStatus.ARCHIVED`) -- fuera de
-   alcance de este corte.
+1. Ningún frontend consume `GET /api/public/hostname-context` todavía: un
+   subdominio de tenant hoy muestra la misma web pública que staging.
+2. No hay borrado físico de tenant (solo `ARCHIVED`), así que tampoco hay
+   purga de filas de `tenant_hostnames`; las rutas de Cloudflare sí se
+   retiran al archivar.

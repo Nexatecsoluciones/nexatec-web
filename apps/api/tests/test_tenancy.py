@@ -32,9 +32,9 @@ from app.models.tenancy_enums import (
     TenantMemberStatus,
     TenantStatus,
 )
-from app.routers import demos as demos_router
 from app.security.passwords import hash_password
 from app.security.roles import Role
+from app.services import cloudflare_dns
 from app.services.hostname_resolution import resolve_hostname
 from app.services.provisioning import force_drop_tenant_database_for_tests
 from app.services.tenant_db_manager import tenant_db_manager
@@ -501,10 +501,10 @@ def test_suspend_expire_renew_toggle_cloudflare_exposure(
     tenant_a = two_tenants_with_users["tenant_a"]
     calls: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        demos_router, "ensure_public_hostname_route", lambda hostname: calls.append(("ensure", hostname))
+        cloudflare_dns, "ensure_public_hostname_route", lambda hostname: calls.append(("ensure", hostname))
     )
     monkeypatch.setattr(
-        demos_router, "remove_public_hostname_route", lambda hostname: calls.append(("remove", hostname))
+        cloudflare_dns, "remove_public_hostname_route", lambda hostname: calls.append(("remove", hostname))
     )
 
     create = admin_client.post(
@@ -584,5 +584,49 @@ def test_sweep_expired_demos_marks_expired(admin_client, two_tenants_with_users,
     assert expired_access.status == SystemAccessStatus.EXPIRED
 
     db.query(SystemAccess).filter(SystemAccess.id == expired_access.id).delete()
+    db.commit()
+    db.close()
+
+
+def test_tenant_suspend_and_reactivate_toggle_hostnames(admin_client, two_tenants_with_users, demo_system, monkeypatch):
+    tenant_a = two_tenants_with_users["tenant_a"]
+    db = SessionLocal()
+    host = f"demo-{tenant_a.slug}.nexatecpy.com"
+    access = SystemAccess(
+        tenant_id=tenant_a.id, system_id=demo_system.id, environment=Environment.DEMO,
+        status=SystemAccessStatus.ACTIVE,
+    )
+    db.add(access)
+    db.add(TenantHostname(tenant_id=tenant_a.id, system_id=demo_system.id, environment=Environment.DEMO, hostname=host))
+    db.commit()
+
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(cloudflare_dns, "ensure_public_hostname_route", lambda h: calls.append(("ensure", h)))
+    monkeypatch.setattr(cloudflare_dns, "remove_public_hostname_route", lambda h: calls.append(("remove", h)))
+
+    resp = admin_client.patch(f"/api/admin/tenants/{tenant_a.id}", json={"status": "SUSPENDED"})
+    assert resp.status_code == 200
+    assert calls == [("remove", host)]
+
+    resp = admin_client.patch(f"/api/admin/tenants/{tenant_a.id}", json={"status": "ACTIVE"})
+    assert resp.status_code == 200
+    assert calls[-1] == ("ensure", host)
+
+    # Si el acceso vencio mientras estaba suspendido, reactivar el tenant
+    # NO debe volver a exponer ese hostname.
+    db.refresh(access)
+    access.status = SystemAccessStatus.EXPIRED
+    db.commit()
+    admin_client.patch(f"/api/admin/tenants/{tenant_a.id}", json={"status": "SUSPENDED"})
+    calls.clear()
+    admin_client.patch(f"/api/admin/tenants/{tenant_a.id}", json={"status": "ACTIVE"})
+    assert calls == []
+
+    # Cambiar otro campo sin tocar status no dispara nada.
+    admin_client.patch(f"/api/admin/tenants/{tenant_a.id}", json={"city": "Asuncion"})
+    assert calls == []
+
+    db.query(TenantHostname).filter(TenantHostname.tenant_id == tenant_a.id).delete(synchronize_session=False)
+    db.query(SystemAccess).filter(SystemAccess.id == access.id).delete(synchronize_session=False)
     db.commit()
     db.close()

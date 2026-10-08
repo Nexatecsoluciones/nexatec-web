@@ -11,12 +11,33 @@ acotado (Zone.DNS:Edit + Account.Cloudflare Tunnel:Edit sobre esta
 zona/cuenta nada mas), nunca la Global API Key.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 import httpx
+from sqlalchemy import text
 
 from app.core.config import get_settings
 
 _API_BASE = "https://api.cloudflare.com/client/v4"
 _TIMEOUT = 10.0
+
+# Clave fija de pg_advisory_lock para serializar el read-modify-write del
+# ingress del tunnel. La API (uvicorn) y el timer de barrido de demos son
+# procesos distintos -- un lock en memoria no alcanza, Postgres si.
+_TUNNEL_INGRESS_LOCK_KEY = 7_412_903_551
+
+
+@contextmanager
+def _tunnel_ingress_lock() -> Iterator[None]:
+    from app.core.db import engine
+
+    with engine.connect() as conn:
+        conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": _TUNNEL_INGRESS_LOCK_KEY})
+        try:
+            yield
+        finally:
+            conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _TUNNEL_INGRESS_LOCK_KEY})
 
 
 class CloudflareNotConfiguredError(Exception):
@@ -150,7 +171,8 @@ def remove_public_hostname_route(hostname: str) -> None:
     target = f"{settings.cloudflare_tunnel_id}.cfargotunnel.com"
     with _client() as client:
         _remove_dns_record(client, settings.cloudflare_zone_id, hostname, target)
-        _remove_tunnel_ingress_rule(client, settings.cloudflare_account_id, settings.cloudflare_tunnel_id, hostname)
+        with _tunnel_ingress_lock():
+            _remove_tunnel_ingress_rule(client, settings.cloudflare_account_id, settings.cloudflare_tunnel_id, hostname)
 
 
 def ensure_public_hostname_route(hostname: str) -> None:
@@ -164,7 +186,8 @@ def ensure_public_hostname_route(hostname: str) -> None:
     target = f"{settings.cloudflare_tunnel_id}.cfargotunnel.com"
     with _client() as client:
         _ensure_dns_record(client, settings.cloudflare_zone_id, hostname, target)
-        _ensure_tunnel_ingress_rule(
-            client, settings.cloudflare_account_id, settings.cloudflare_tunnel_id,
-            hostname, settings.cloudflare_tunnel_service,
-        )
+        with _tunnel_ingress_lock():
+            _ensure_tunnel_ingress_rule(
+                client, settings.cloudflare_account_id, settings.cloudflare_tunnel_id,
+                hostname, settings.cloudflare_tunnel_service,
+            )

@@ -229,3 +229,26 @@ def test_remove_is_noop_when_nothing_exists(monkeypatch):
 
     cloudflare_dns.remove_public_hostname_route("demo-foo.nexatecpy.com")
     assert [c.method for c in recorder.calls] == ["GET", "GET"]
+
+
+def test_tunnel_ingress_lock_blocks_other_connections():
+    """El lock es de Postgres (no de memoria): mientras lo tiene uno, otra
+    conexion -- como la del timer de barrido, que es otro proceso -- no
+    puede tomarlo."""
+    from sqlalchemy import text
+
+    from app.core.db import engine
+
+    with cloudflare_dns._tunnel_ingress_lock():
+        with engine.connect() as other:
+            got = other.execute(
+                text("SELECT pg_try_advisory_lock(:k)"), {"k": cloudflare_dns._TUNNEL_INGRESS_LOCK_KEY}
+            ).scalar()
+            assert got is False
+
+    with engine.connect() as other:
+        got = other.execute(
+            text("SELECT pg_try_advisory_lock(:k)"), {"k": cloudflare_dns._TUNNEL_INGRESS_LOCK_KEY}
+        ).scalar()
+        assert got is True
+        other.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": cloudflare_dns._TUNNEL_INGRESS_LOCK_KEY})

@@ -17,6 +17,7 @@ from app.models.tenancy_enums import TenantMemberRole, TenantMemberStatus, Tenan
 from app.security.passwords import hash_password
 from app.security.rbac import require_admin_panel
 from app.security.roles import Role
+from app.services import hostname_exposure
 
 router = APIRouter(prefix="/api/admin/tenants", tags=["admin", "tenants"])
 
@@ -181,6 +182,7 @@ def update_tenant(
     admin=Depends(require_admin_panel()),
 ):
     tenant = _get_tenant_or_404(db, tenant_id)
+    previous_status = tenant.status
 
     # Solo los campos explicitos del schema pueden cambiar. model_dump con
     # exclude_unset evita pisar campos no enviados; nunca se usa un
@@ -188,6 +190,12 @@ def update_tenant(
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(tenant, field, value)
+
+    if tenant.status != previous_status:
+        if tenant.status in (TenantStatus.SUSPENDED, TenantStatus.ARCHIVED):
+            hostname_exposure.unexpose(db, tenant_id=tenant.id)
+        elif tenant.status == TenantStatus.ACTIVE:
+            hostname_exposure.reexpose_active_only(db, tenant_id=tenant.id)
 
     log_audit(
         db,

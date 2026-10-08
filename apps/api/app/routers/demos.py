@@ -11,7 +11,7 @@ from app.core.db import get_db
 from app.core.net import safe_ip
 from app.models.control_plane import Tenant
 from app.models.system import System
-from app.models.tenancy import DemoInstance, ProductionInstance, SystemAccess, TenantHostname
+from app.models.tenancy import DemoInstance, ProductionInstance, SystemAccess
 from app.models.tenancy_enums import (
     Environment,
     ProvisioningStatus,
@@ -19,12 +19,7 @@ from app.models.tenancy_enums import (
     TenantStatus,
 )
 from app.security.rbac import require_admin_panel
-from app.services.cloudflare_dns import (
-    CloudflareApiError,
-    CloudflareNotConfiguredError,
-    ensure_public_hostname_route,
-    remove_public_hostname_route,
-)
+from app.services import cloudflare_dns, hostname_exposure
 from app.services.hostname_resolution import register_tenant_hostname
 from app.services.provisioning import ProvisioningError, provision_tenant_database
 
@@ -93,58 +88,14 @@ def _assign_hostname_best_effort(
         return None
 
     try:
-        ensure_public_hostname_route(hostname)
-    except (CloudflareNotConfiguredError, CloudflareApiError):
+        cloudflare_dns.ensure_public_hostname_route(hostname)
+    except (cloudflare_dns.CloudflareNotConfiguredError, cloudflare_dns.CloudflareApiError):
         # El hostname queda registrado en tenant_hostnames igual -- solo
         # no esta expuesto en internet todavia. No es un error del
         # aprovisionamiento en si.
         pass
 
     return hostname
-
-
-def _find_hostname(
-    db: Session, *, tenant_id: uuid.UUID, system_id: uuid.UUID, environment: Environment
-) -> TenantHostname | None:
-    return db.execute(
-        select(TenantHostname).where(
-            TenantHostname.tenant_id == tenant_id,
-            TenantHostname.system_id == system_id,
-            TenantHostname.environment == environment,
-        )
-    ).scalar_one_or_none()
-
-
-def _unexpose_hostname_best_effort(
-    db: Session, *, tenant_id: uuid.UUID, system_id: uuid.UUID, environment: Environment
-) -> None:
-    """Al suspender/expirar un acceso, saca el hostname de Cloudflare
-    (DNS + ruta del tunnel) -- pero NUNCA borra la fila de
-    tenant_hostnames: si se renueva despues, se vuelve a exponer el MISMO
-    subdominio (ver _reexpose_hostname_best_effort), no uno nuevo. Mismo
-    criterio best-effort que el resto: si Cloudflare no esta configurado
-    o falla, no rompe la operacion que lo llamo."""
-    record = _find_hostname(db, tenant_id=tenant_id, system_id=system_id, environment=environment)
-    if record is None:
-        return
-    try:
-        remove_public_hostname_route(record.hostname)
-    except (CloudflareNotConfiguredError, CloudflareApiError):
-        pass
-
-
-def _reexpose_hostname_best_effort(
-    db: Session, *, tenant_id: uuid.UUID, system_id: uuid.UUID, environment: Environment
-) -> None:
-    """Reverso de _unexpose_hostname_best_effort, usado al renovar/reactivar
-    un acceso que pudo haber sido suspendido/expirado antes."""
-    record = _find_hostname(db, tenant_id=tenant_id, system_id=system_id, environment=environment)
-    if record is None:
-        return
-    try:
-        ensure_public_hostname_route(record.hostname)
-    except (CloudflareNotConfiguredError, CloudflareApiError):
-        pass
 
 
 def _get_demo_or_404(db: Session, demo_id: uuid.UUID) -> DemoInstance:
@@ -291,9 +242,9 @@ def renew_demo(
         access.status = SystemAccessStatus.ACTIVE
 
     # Si la demo habia sido suspendida/expirada antes (hostname sacado de
-    # Cloudflare, ver _unexpose_hostname_best_effort), renovar la vuelve a
+    # Cloudflare, ver app/services/hostname_exposure.py), renovar la vuelve a
     # exponer con el MISMO subdominio.
-    _reexpose_hostname_best_effort(
+    hostname_exposure.reexpose(
         db, tenant_id=demo.tenant_id, system_id=demo.system_id, environment=Environment.DEMO
     )
 
@@ -320,7 +271,7 @@ def suspend_demo(
     if access is not None:
         access.status = SystemAccessStatus.SUSPENDED
 
-    _unexpose_hostname_best_effort(
+    hostname_exposure.unexpose(
         db, tenant_id=demo.tenant_id, system_id=demo.system_id, environment=Environment.DEMO
     )
 
@@ -348,7 +299,7 @@ def expire_demo(
     if access is not None:
         access.status = SystemAccessStatus.EXPIRED
 
-    _unexpose_hostname_best_effort(
+    hostname_exposure.unexpose(
         db, tenant_id=demo.tenant_id, system_id=demo.system_id, environment=Environment.DEMO
     )
 
@@ -382,7 +333,7 @@ def sweep_expired_demos(db: Session) -> int:
         demo = db.execute(
             select(DemoInstance).where(DemoInstance.system_access_id == access.id)
         ).scalar_one_or_none()
-        _unexpose_hostname_best_effort(
+        hostname_exposure.unexpose(
             db, tenant_id=access.tenant_id, system_id=access.system_id, environment=Environment.DEMO
         )
         log_audit(
