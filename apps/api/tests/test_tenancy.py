@@ -32,6 +32,7 @@ from app.models.tenancy_enums import (
     TenantMemberStatus,
     TenantStatus,
 )
+from app.routers import demos as demos_router
 from app.security.passwords import hash_password
 from app.security.roles import Role
 from app.services.hostname_resolution import resolve_hostname
@@ -483,6 +484,61 @@ def test_convert_demo_to_production_provisions_and_assigns_hostname(
     db.query(TenantDatabase).filter(TenantDatabase.id.in_([demo_tenant_db.id, prod_tenant_db.id])).delete(
         synchronize_session=False
     )
+    db.query(SystemAccess).filter(
+        SystemAccess.tenant_id == tenant_a.id, SystemAccess.system_id == demo_system.id
+    ).delete(synchronize_session=False)
+    db.commit()
+    db.close()
+
+
+def test_suspend_expire_renew_toggle_cloudflare_exposure(
+    admin_client, two_tenants_with_users, demo_system, monkeypatch
+):
+    """Sin credenciales de Cloudflare reales en tests -- se verifica que
+    el router LLAMA a ensure/remove_public_hostname_route en los momentos
+    correctos (crear, suspender, renovar), no que Cloudflare responda de
+    verdad (eso ya lo cubre tests/test_cloudflare_dns.py)."""
+    tenant_a = two_tenants_with_users["tenant_a"]
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        demos_router, "ensure_public_hostname_route", lambda hostname: calls.append(("ensure", hostname))
+    )
+    monkeypatch.setattr(
+        demos_router, "remove_public_hostname_route", lambda hostname: calls.append(("remove", hostname))
+    )
+
+    create = admin_client.post(
+        "/api/admin/demos",
+        json={"tenant_id": str(tenant_a.id), "system_id": str(demo_system.id), "duration_days": 7},
+    )
+    assert create.status_code == 201, create.text
+    demo_id = create.json()["id"]
+    hostname = create.json()["hostname"]
+    assert calls == [("ensure", hostname)]
+
+    suspend = admin_client.post(f"/api/admin/demos/{demo_id}/suspend")
+    assert suspend.status_code == 200
+    assert calls[-1] == ("remove", hostname)
+
+    renew = admin_client.post(f"/api/admin/demos/{demo_id}/renew", json={"extra_days": 5})
+    assert renew.status_code == 200
+    assert calls[-1] == ("ensure", hostname)
+
+    expire = admin_client.post(f"/api/admin/demos/{demo_id}/expire")
+    assert expire.status_code == 200
+    assert calls[-1] == ("remove", hostname)
+
+    db = SessionLocal()
+    demo_row = db.get(DemoInstance, uuid.UUID(demo_id))
+    tenant_db = db.get(TenantDatabase, demo_row.tenant_database_id)
+    tenant_db_manager.dispose_all()
+    force_drop_tenant_database_for_tests(tenant_db.database_identifier)
+    db.query(TenantHostname).filter(
+        TenantHostname.tenant_id == tenant_a.id, TenantHostname.system_id == demo_system.id
+    ).delete(synchronize_session=False)
+    db.query(DemoInstance).filter(DemoInstance.id == demo_row.id).delete()
+    db.query(TenantDatabaseCredential).filter(TenantDatabaseCredential.tenant_database_id == tenant_db.id).delete()
+    db.query(TenantDatabase).filter(TenantDatabase.id == tenant_db.id).delete()
     db.query(SystemAccess).filter(
         SystemAccess.tenant_id == tenant_a.id, SystemAccess.system_id == demo_system.id
     ).delete(synchronize_session=False)

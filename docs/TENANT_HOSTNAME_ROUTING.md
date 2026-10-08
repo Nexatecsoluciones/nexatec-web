@@ -1,10 +1,11 @@
 # Resolución de tenant por hostname (NEXATEC ERP Cloud)
 
 Arquitectura de subdominios por cliente descrita en el pedido de
-**NEXATEC ERP Cloud**. Ya resuelve tenant por hostname end-to-end a nivel
-HTTP (ver corte 4), pero **todavía no está expuesta en Cloudflare ni
-usada por ningún frontend** -- ver "Qué falta" más abajo antes de asumir
-que ya hay subdominios funcionando de cara al público.
+**NEXATEC ERP Cloud**. Resuelve tenant por hostname end-to-end a nivel
+HTTP (corte 4), expone de verdad el subdominio en Cloudflare al crear una
+demo/producción y lo retira al suspenderla/expirarla (corte 5 y 6) --
+pero **todavía no la usa ningún frontend** -- ver "Qué falta" más abajo
+antes de asumir que ya hay una experiencia de usuario por subdominio.
 
 ## Qué existe
 
@@ -100,15 +101,39 @@ que ya hay subdominios funcionando de cara al público.
   sin red real): alta, idempotencia, conflicto con DNS existente, error de
   API, y los mismos casos para el borrado.
 
+## Qué se conectó después (corte 6): retirar el hostname al suspender/expirar
+
+- `suspend_demo`, `expire_demo` y `sweep_expired_demos` (los tres en
+  `app/routers/demos.py`) llaman a `_unexpose_hostname_best_effort`: saca
+  la ruta de Cloudflare (DNS + ingress) del hostname asignado, pero
+  **nunca borra la fila de `tenant_hostnames`** -- el subdominio sigue
+  siendo de ese tenant, solo que no resuelve mientras el acceso no está
+  activo.
+- `renew_demo` llama a `_reexpose_hostname_best_effort`: si el acceso
+  había sido suspendido/expirado (y por lo tanto el hostname sacado de
+  Cloudflare), renovarlo lo vuelve a exponer con el mismo subdominio de
+  siempre, no uno nuevo.
+- Todo con el mismo criterio best-effort del resto: si Cloudflare no
+  responde, no bloquea la operación de negocio (suspender/renovar/expirar
+  sigue funcionando igual).
+- Test `test_suspend_expire_renew_toggle_cloudflare_exposure` (en
+  `tests/test_tenancy.py`) verifica, con `ensure/remove_public_hostname_route`
+  mockeados, que cada transición llama exactamente a la función correcta
+  con el hostname correcto -- crear -> `ensure`, suspender -> `remove`,
+  renovar -> `ensure`, expirar -> `remove`.
+
 ## Qué falta (no inventar que ya funciona)
 
-1. Falta el modelo de ciclo de vida de demo (`EXPIRING`/`EXPIRED`/etc.)
-   más fino que el `ProvisioningStatus`/`SystemAccessStatus` actuales --
-   decidir si un hostname sigue respondiendo (con que contenido: aviso de
-   "demo vencida") después de vencida la demo, en vez de simplemente
-   dejar de aparecer. Hoy, aunque una demo expire, su ruta en Cloudflare
-   sigue viva (nadie llama a `remove_public_hostname_route` todavía).
-2. El `PUT` de la configuración del tunnel reemplaza el ingress completo
-   -- dos demos creándose al mismo tiempo podrían pisarse la regla una a
-   la otra (read-modify-write sin lock). Aceptable por ahora (volumen bajo,
-   admin-driven), pero no es seguro bajo alta concurrencia real.
+1. El `PUT` de la configuración del tunnel reemplaza el ingress completo
+   -- dos demos creándose/expirando al mismo tiempo podrían pisarse la
+   regla una a la otra (read-modify-write sin lock). Aceptable por ahora
+   (volumen bajo, admin-driven, y es idempotente asi que un reintento lo
+   arregla), pero no es seguro bajo alta concurrencia real.
+2. `convert_demo_to_production` no saca el hostname de DEMO al crear el
+   de PRODUCTION -- quedan los dos activos en Cloudflare (`demo-x` y `x`)
+   simultaneamente. Puede ser lo deseado (la demo sigue viva aparte) o no
+   -- no se definio todavia la politica de que pasa con el entitlement de
+   DEMO despues de convertir a produccion.
+3. Nadie purga `tenant_hostnames` ni Cloudflare cuando un tenant se borra
+   o se archiva (`Tenant.deleted_at`/`TenantStatus.ARCHIVED`) -- fuera de
+   alcance de este corte.
