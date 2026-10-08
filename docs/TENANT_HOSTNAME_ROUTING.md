@@ -69,21 +69,46 @@ que ya hay subdominios funcionando de cara al público.
   cambie de contenido segun el subdominio. Ese es el proximo paso del
   lado de Next.js.
 
+## Qué se conectó después (corte 5): exposición real en Cloudflare
+
+- `app/services/cloudflare_dns.py`: `ensure_public_hostname_route(hostname)`
+  crea (si falta) el registro DNS CNAME `hostname -> <tunnel_id>.cfargotunnel.com`
+  (proxied) y agrega una regla al ingress del Tunnel `nexatec-platform`
+  apuntando a `CLOUDFLARE_TUNNEL_SERVICE` (`http://127.0.0.1:4302`, el
+  mismo Next.js que ya sirve `staging.nexatecpy.com`). Idempotente: si ya
+  está todo como se espera, no hace ningún cambio; si encuentra un DNS
+  record apuntando a otro lado, **no lo pisa**, tira error. La regla
+  catch-all del tunnel (`http_status:404`) siempre queda última.
+  `remove_public_hostname_route(hostname)` es el reverso (mismo chequeo de
+  "no borrar lo que no creamos nosotros").
+- `_assign_hostname_best_effort` (en `app/routers/demos.py`) llama a esto
+  después de registrar el hostname en `tenant_hostnames` -- best-effort
+  también: si Cloudflare no está configurado o falla, el hostname queda
+  igual guardado en la tabla, pero sin exponer a internet todavía. Nunca
+  bloquea la creación de la demo/producción.
+- Credenciales en `/etc/nexatec/cloudflare-api.env` (fuera del repo, igual
+  que el resto de secrets de staging) y mezcladas en
+  `/etc/nexatec/api-staging.env` para que las lea el proceso real. Ver
+  `.env.example` para los nombres exactos. El token es un API Token
+  acotado (Zone.DNS:Edit + Account.Cloudflare Tunnel:Edit, scope solo a
+  `nexatecpy.com`), nunca la Global API Key.
+- Verificado end-to-end contra Cloudflare real (no solo mocks): se creó
+  `cf-wiring-test.nexatecpy.com`, resolvió por DNS, respondió `200` por
+  HTTPS a través del túnel, y se removió limpio después -- el túnel quedó
+  exactamente como antes de la prueba.
+- Tests en `tests/test_cloudflare_dns.py` (8 casos, con `httpx.MockTransport`,
+  sin red real): alta, idempotencia, conflicto con DNS existente, error de
+  API, y los mismos casos para el borrado.
+
 ## Qué falta (no inventar que ya funciona)
 
-1. **Exposición real en Cloudflare.** Hoy el túnel solo tiene un Public
-   Hostname (`staging.nexatecpy.com`, ver `docs/CLOUDFLARE.md`). Un
-   hostname nuevo en `tenant_hostnames` no significa que Cloudflare lo
-   esté enrutando -- falta decidir entre (a) agregar cada hostname al
-   túnel vía la API de Cloudflare cuando se aprueba una demo/producción
-   (requiere un API Token con permisos acotados a la zona
-   `nexatecpy.com`, que el propietario tiene que generar), o (b) un
-   hostname wildcard (`*.nexatecpy.com`) -- no probado todavía, no asumir
-   que funciona sin verificarlo primero. Hasta que esto exista, el
-   hostname que devuelve la API es un dato guardado, no una URL que
-   realmente resuelva en internet.
-2. Falta el modelo de ciclo de vida de demo (`EXPIRING`/`EXPIRED`/etc.)
+1. Falta el modelo de ciclo de vida de demo (`EXPIRING`/`EXPIRED`/etc.)
    más fino que el `ProvisioningStatus`/`SystemAccessStatus` actuales --
    decidir si un hostname sigue respondiendo (con que contenido: aviso de
    "demo vencida") después de vencida la demo, en vez de simplemente
-   dejar de aparecer.
+   dejar de aparecer. Hoy, aunque una demo expire, su ruta en Cloudflare
+   sigue viva (nadie llama a `remove_public_hostname_route` todavía).
+2. El `PUT` de la configuración del tunnel reemplaza el ingress completo
+   -- dos demos creándose al mismo tiempo podrían pisarse la regla una a
+   la otra (read-modify-write sin lock). Aceptable por ahora (volumen bajo,
+   admin-driven), pero no es seguro bajo alta concurrencia real.

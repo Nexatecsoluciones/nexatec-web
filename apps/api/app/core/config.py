@@ -73,6 +73,27 @@ class Settings(BaseSettings):
     bancard_public_key: str = Field(default="", alias="BANCARD_PUBLIC_KEY")
     bancard_private_key: str = Field(default="", alias="BANCARD_PRIVATE_KEY")
 
+    # Cloudflare: automatiza el alta de subdominios de tenant (DNS + ruta
+    # del Tunnel) cuando se asigna un hostname -- ver
+    # app/services/cloudflare_dns.py. Vacio por defecto: sin token, el
+    # hostname queda igual registrado en tenant_hostnames pero no se
+    # expone a internet, nunca bloquea la demo/produccion (mismo patron
+    # que Bancard arriba). El token es un API Token acotado (Zone.DNS:Edit
+    # + Account.Cloudflare Tunnel:Edit sobre esta zona/cuenta nada mas),
+    # nunca la Global API Key.
+    cloudflare_api_token: str = Field(default="", alias="CLOUDFLARE_API_TOKEN")
+    cloudflare_account_id: str = Field(default="", alias="CLOUDFLARE_ACCOUNT_ID")
+    cloudflare_zone_id: str = Field(default="", alias="CLOUDFLARE_ZONE_ID")
+    cloudflare_tunnel_id: str = Field(default="", alias="CLOUDFLARE_TUNNEL_ID")
+    cloudflare_tunnel_service: str = Field(default="http://127.0.0.1:4302", alias="CLOUDFLARE_TUNNEL_SERVICE")
+
+    @property
+    def cloudflare_configured(self) -> bool:
+        return bool(
+            self.cloudflare_api_token and self.cloudflare_account_id
+            and self.cloudflare_zone_id and self.cloudflare_tunnel_id
+        )
+
     @field_validator("cors_allowed_origins")
     @classmethod
     def no_wildcard_cors(cls, v: str) -> str:

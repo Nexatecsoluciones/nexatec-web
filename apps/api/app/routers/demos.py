@@ -19,6 +19,11 @@ from app.models.tenancy_enums import (
     TenantStatus,
 )
 from app.security.rbac import require_admin_panel
+from app.services.cloudflare_dns import (
+    CloudflareApiError,
+    CloudflareNotConfiguredError,
+    ensure_public_hostname_route,
+)
 from app.services.hostname_resolution import register_tenant_hostname
 from app.services.provisioning import ProvisioningError, provision_tenant_database
 
@@ -69,12 +74,14 @@ def _assign_hostname_best_effort(
     db: Session, *, tenant: Tenant, system_id: uuid.UUID, environment: Environment, prefix: str = ""
 ) -> str | None:
     """Intenta registrar `<prefix><tenant.slug>.nexatecpy.com` en
-    tenant_hostnames (ver app/services/hostname_resolution.py). Best
-    effort a proposito: un slug invalido para DNS (muy largo, termina en
-    guion) o una colision NUNCA deben hacer fallar el aprovisionamiento
-    de la demo/produccion -- el acceso por login en el portal sigue
-    funcionando igual sin subdominio asignado. El admin puede asignar uno
-    a mano despues si esto falla."""
+    tenant_hostnames (ver app/services/hostname_resolution.py) y, si
+    Cloudflare esta configurado (ver app/services/cloudflare_dns.py),
+    exponerlo de verdad (DNS CNAME + ruta del Tunnel). Best effort a
+    proposito en los dos pasos: un slug invalido para DNS, una colision,
+    o que Cloudflare no este configurado/falle, NUNCA deben hacer fallar
+    el aprovisionamiento de la demo/produccion -- el acceso por login en
+    el portal sigue funcionando igual sin subdominio expuesto. El admin
+    puede resolverlo a mano despues si esto falla."""
     hostname = f"{prefix}{tenant.slug}.nexatecpy.com"
     try:
         register_tenant_hostname(
@@ -83,6 +90,15 @@ def _assign_hostname_best_effort(
         )
     except ValueError:
         return None
+
+    try:
+        ensure_public_hostname_route(hostname)
+    except (CloudflareNotConfiguredError, CloudflareApiError):
+        # El hostname queda registrado en tenant_hostnames igual -- solo
+        # no esta expuesto en internet todavia. No es un error del
+        # aprovisionamiento en si.
+        pass
+
     return hostname
 
 
