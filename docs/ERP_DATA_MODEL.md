@@ -185,6 +185,31 @@ API (`app/services/receivables.py`):
   este pedido no puede superar el límite. Límite 0 = sin crédito. Lock del
   cliente para que dos pedidos simultáneos no usen el mismo margen.
 
+## Revisión `8cb0b22fdea3` — compras y cuentas por pagar
+
+| Tabla | Qué es | Reglas en la base |
+|---|---|---|
+| `purchase_orders` / `purchase_order_lines` | Orden de compra (`OC-000001`) | Recibido entre 0 y lo pedido; `line_total = line_net + line_tax` |
+| `supplier_invoices` | Factura **del proveedor** (dato de tercero: su número y timbrado) | **Duplicado imposible**: único `(proveedor, número)` vigente; desglose suma el total; saldo entre 0 y total |
+| `supplier_payments` / `supplier_payment_allocations` | Pagos (`PP-000001`) y su aplicación | Mismas reglas que los cobros |
+
+Flujo (`app/services/purchases.py`, API en `/api/erp/{id}/...`):
+
+- `purchases/orders`: crear (borrador) → `confirm` → `receive` (parcial o
+  total, por línea) → queda `PARTIALLY_RECEIVED` o `RECEIVED`. `close`:
+  `CANCELLED` si no se recibió nada, `CLOSED` si se recibió algo (corta lo
+  pendiente). No se puede recibir más de lo pedido.
+- La recepción mete stock al **costo neto de IVA** (`line_net / cantidad`):
+  el IVA de compras es crédito fiscal, no costo. `Idempotency-Key` evita
+  recibir dos veces (no aplica a recepciones de solo servicios, que no
+  generan movimientos).
+- `supplier-invoices`: se valida que el IVA declarado sea coherente con lo
+  gravado (±1 unidad), y si la factura está ligada a una OC, que lo
+  facturado no supere lo **efectivamente recibido** (control factura vs.
+  recepción). Vencimiento por defecto = emisión + plazo del proveedor.
+- `supplier-payments`: pago con aplicación, anticipo, `apply`, `void`
+  (restituye saldos), sin sobrepago; `payables/aging` igual que cobranzas.
+
 ## Empresa demo ficticia (`app/services/demo_seed.py`)
 
 Al aprovisionar una base de **DEMO** (nunca PRODUCTION) se carga, en una
@@ -208,6 +233,7 @@ de producción arrancan **vacías**.
 - Reservas de stock por pedido (el campo `reserved` existe, nadie lo usa todavía), lotes/series/vencimientos, FIFO.
 - Devoluciones y notas de crédito; PDF imprimible con marca de agua.
 - Integración SIFEN (bloqueada por diseño, ver gate fiscal).
-- Compras, cuentas por pagar, contabilidad.
+- Retenciones de IVA/renta en pagos, costos de importación (landed cost), solicitudes y cotizaciones de compra.
+- Contabilidad (asientos automáticos desde todo lo anterior).
 - Historia transaccional en la demo (ventas/compras de 3-6 meses): depende de que existan esos módulos.
 - Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).

@@ -14,6 +14,7 @@ from app.routers import (
     demos,
     erp_inventory,
     erp_masters,
+    erp_purchases,
     erp_receivables,
     erp_sales,
     jobs,
@@ -102,6 +103,7 @@ app.include_router(erp_masters.router)
 app.include_router(erp_inventory.router)
 app.include_router(erp_sales.router)
 app.include_router(erp_receivables.router)
+app.include_router(erp_purchases.router)
 app.include_router(media.router)
 app.include_router(payments.router)
 app.include_router(system_status.router)
