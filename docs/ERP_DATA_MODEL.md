@@ -150,6 +150,41 @@ DRAFT --confirm--> CONFIRMED --deliver--> DELIVERED
   liquidación tributaria la valida un contador y, para comprobantes
   electrónicos, SIFEN.
 
+## Revisión `d654ac7086bf` — facturación interna, cobros y cuentas por cobrar
+
+| Tabla | Qué es | Reglas en la base |
+|---|---|---|
+| `sales_invoices` | Comprobante **interno** de un pedido entregado (`FI-000001`) | **Gate fiscal**: `CHECK fiscal_status = 'INTERNAL_SIMULATION'`; desglose gravada 10 / IVA 10 / gravada 5 / IVA 5 / exenta que **tiene que sumar el total**; `0 <= balance_due <= total`; vencimiento ≥ emisión; una sola factura vigente por pedido (índice único parcial) |
+| `customer_receipts` | Cobros (`RC-000001`) | Monto `> 0`; `0 <= unapplied_amount <= amount`; `Idempotency-Key` único |
+| `receipt_allocations` | Aplicación de un cobro a facturas | Monto `> 0` |
+
+**La factura NO es tributaria.** Cada respuesta trae
+`legal_notice = "DOCUMENTO DE SIMULACIÓN — SIN VALIDEZ TRIBUTARIA"`. Para
+emitir algo con validez (SIFEN/DNIT) hace falta: manual técnico vigente,
+timbrado, certificado de firma, habilitación y homologación, y **una
+migración explícita que levante `ck_sales_invoices_fiscal_gate`**. Ningún
+código puede saltarse eso por error.
+
+API (`app/services/receivables.py`):
+
+| Endpoint | Qué hace |
+|---|---|
+| `POST sales/orders/{id}/invoice` | Factura un pedido **entregado**; vencimiento = emisión + plazo del cliente si es a crédito |
+| `POST invoices/{id}/void` | Anula solo si no tiene cobros aplicados; después se puede re-facturar el pedido |
+| `POST receipts` | Cobro con aplicación opcional; lo no aplicado queda como **anticipo** |
+| `POST receipts/{id}/apply` | Aplica un anticipo a facturas |
+| `POST receipts/{id}/void` | Anula el cobro y **restituye** los saldos de las facturas |
+| `GET receivables/aging?as_of=` | Antigüedad por cliente: al día, 1–30, 31–60, 61–90, +90; anticipos y neto |
+| `GET receivables/customers/{id}/statement` | Extracto con saldo corrido (lo anulado se muestra pero no suma) |
+
+- **Sobreaplicación imposible**: lock de facturas en orden de id + `CHECK`
+  en la base. Test con dos cobros simultáneos de 6.000 sobre un saldo de
+  10.000: pasa uno, el otro es rechazado, saldo final 4.000.
+- **Límite de crédito** al confirmar un pedido a crédito: deuda abierta +
+  pedidos a crédito confirmados/entregados sin factura − anticipos +
+  este pedido no puede superar el límite. Límite 0 = sin crédito. Lock del
+  cliente para que dos pedidos simultáneos no usen el mismo margen.
+
 ## Empresa demo ficticia (`app/services/demo_seed.py`)
 
 Al aprovisionar una base de **DEMO** (nunca PRODUCTION) se carga, en una
@@ -171,8 +206,8 @@ de producción arrancan **vacías**.
 
 - Pantallas (frontend) para estos maestros.
 - Reservas de stock por pedido (el campo `reserved` existe, nadie lo usa todavía), lotes/series/vencimientos, FIFO.
-- Factura (interna/simulación), cobros, cuentas por cobrar, devoluciones y notas de crédito.
+- Devoluciones y notas de crédito; PDF imprimible con marca de agua.
+- Integración SIFEN (bloqueada por diseño, ver gate fiscal).
 - Compras, cuentas por pagar, contabilidad.
-- Control de límite de crédito al confirmar (necesita cuentas por cobrar).
 - Historia transaccional en la demo (ventas/compras de 3-6 meses): depende de que existan esos módulos.
 - Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).

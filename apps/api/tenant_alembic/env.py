@@ -9,7 +9,7 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 from app.tenant_models import TenantBase
-from app.tenant_models import core, inventory, sales  # noqa: F401  (registra los modelos en TenantBase.metadata)
+from app.tenant_models import core, inventory, receivables, sales  # noqa: F401  (registra los modelos en TenantBase.metadata)
 
 config = context.config
 target_metadata = TenantBase.metadata

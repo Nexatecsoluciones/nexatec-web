@@ -172,6 +172,10 @@ def confirm(db: Session, order_id: uuid.UUID, user_id: uuid.UUID | None) -> Sale
         return order
     if order.status != SalesOrderStatus.DRAFT:
         raise InvalidTransition(f"No se puede confirmar un pedido {order.status.value}.")
+    if order.payment_condition == PaymentCondition.CREDIT:
+        from app.services.receivables import assert_credit_available
+
+        assert_credit_available(db, order.customer_id, order.total)
     op = inventory.OpContext(db=db, user_id=user_id, reference=order.number)
     for line in _stock_lines(db, order):
         inventory.reserve(op, line.product_id, order.warehouse_id, line.quantity)
