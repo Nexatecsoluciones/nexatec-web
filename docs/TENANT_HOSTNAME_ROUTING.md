@@ -28,12 +28,29 @@ pedido de **NEXATEC ERP Cloud**. Esto es la base de resolución, todavía
   correcta, hosts reservados, hosts inválidos/hostiles (host-header
   injection), aislamiento cruzado entre dos tenants con el mismo sistema.
 
+## Qué se conectó después (corte 3)
+
+- `POST /api/admin/demos` asigna automáticamente `demo-<tenant.slug>.nexatecpy.com`
+  al dejar la demo en `READY` (best-effort: si el slug no es válido como
+  DNS o hay colisión, el `ValueError` de `register_tenant_hostname` se
+  atrapa y la demo sigue funcionando sin hostname -- nunca bloquea el
+  aprovisionamiento).
+- `POST /api/admin/demos/{id}/convert-to-production` asigna
+  `<tenant.slug>.nexatecpy.com` (sin el prefijo `demo-`) a la instancia de
+  producción nueva, con la misma lógica best-effort.
+- Ambos endpoints devuelven el campo `hostname` en la respuesta
+  (`null` si no se pudo asignar). Ver
+  `test_convert_demo_to_production_provisions_and_assigns_hostname` y la
+  aserción agregada en `test_demo_full_lifecycle_provisions_real_isolated_database`
+  (`tests/test_tenancy.py`).
+
 ## Qué falta (no inventar que ya funciona)
 
-1. **Conectar esto a un router real.** Hoy ningún endpoint usa
-   `resolve_hostname`; la resolución de tenant en producción sigue siendo
-   por sesión (`tenant_id` del usuario logueado), que sigue funcionando
-   igual que antes. Falta decidir en qué capa se usa (middleware de
+1. **Conectar esto a un router HTTP público.** Lo de arriba asigna el
+   hostname en la tabla, pero ningún endpoint todavía RESUELVE tenant a
+   partir del `Host` header de una request real; la resolución de tenant
+   en producción sigue siendo por sesión (`tenant_id` del usuario
+   logueado). Falta decidir en qué capa se usa esto (middleware de
    FastAPI, o en el BFF de Next.js antes de llegar a la API) y agregar los
    tests de "host desconocido devuelve 404 controlado" a nivel HTTP.
 2. **Exposición real en Cloudflare.** Hoy el túnel solo tiene un Public
@@ -44,10 +61,11 @@ pedido de **NEXATEC ERP Cloud**. Esto es la base de resolución, todavía
    (requiere un API Token con permisos acotados a la zona
    `nexatecpy.com`, que el propietario tiene que generar), o (b) un
    hostname wildcard (`*.nexatecpy.com`) -- no probado todavía, no asumir
-   que funciona sin verificarlo primero.
-3. **`register_tenant_hostname` no está invocado desde ningún job.** El
-   wizard de creación de demo (Control Center) todavía no asigna un
-   hostname automáticamente.
-4. Falta el modelo de ciclo de vida de demo (`EXPIRING`/`EXPIRED`/etc.)
-   más fino que el `ProvisioningStatus` actual -- lo que decide si un
-   hostname sigue sirviendo contenido después de vencida la demo.
+   que funciona sin verificarlo primero. Hasta que esto exista, el
+   hostname que devuelve la API es un dato guardado, no una URL que
+   realmente resuelva en internet.
+3. Falta el modelo de ciclo de vida de demo (`EXPIRING`/`EXPIRED`/etc.)
+   más fino que el `ProvisioningStatus`/`SystemAccessStatus` actuales --
+   decidir si un hostname sigue respondiendo (con que contenido: aviso de
+   "demo vencida") después de vencida la demo, en vez de simplemente
+   dejar de aparecer.

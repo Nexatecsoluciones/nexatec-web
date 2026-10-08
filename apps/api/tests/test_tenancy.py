@@ -17,9 +17,11 @@ from app.models.control_plane import PasswordResetToken, Tenant, User, UserSessi
 from app.models.system import System
 from app.models.tenancy import (
     DemoInstance,
+    ProductionInstance,
     SystemAccess,
     TenantDatabase,
     TenantDatabaseCredential,
+    TenantHostname,
     TenantUser,
 )
 from app.models.tenancy_enums import (
@@ -32,6 +34,7 @@ from app.models.tenancy_enums import (
 )
 from app.security.passwords import hash_password
 from app.security.roles import Role
+from app.services.hostname_resolution import resolve_hostname
 from app.services.provisioning import force_drop_tenant_database_for_tests
 from app.services.tenant_db_manager import tenant_db_manager
 
@@ -365,6 +368,7 @@ def test_demo_full_lifecycle_provisions_real_isolated_database(admin_client, two
     assert create.status_code == 201, create.text
     demo = create.json()
     assert demo["status"] == "READY"
+    assert demo["hostname"] == f"demo-{tenant_a.slug}.nexatecpy.com"
     demo_id = demo["id"]
 
     db = SessionLocal()
@@ -406,13 +410,82 @@ def test_demo_full_lifecycle_provisions_real_isolated_database(admin_client, two
     db.refresh(access_row)
     assert access_row.status == SystemAccessStatus.SUSPENDED
 
-    # Cleanup: DB fisica + filas de registro.
+    # Cleanup: DB fisica + filas de registro. create_demo asigna un
+    # hostname best-effort (ver _assign_hostname_best_effort en
+    # app/routers/demos.py) que tambien hay que limpiar, o la proxima
+    # corrida del fixture demo_system falla al borrar el System por la FK.
     tenant_db_manager.dispose_all()
     force_drop_tenant_database_for_tests(tenant_db.database_identifier)
+    db.query(TenantHostname).filter(
+        TenantHostname.tenant_id == tenant_a.id, TenantHostname.system_id == demo_system.id
+    ).delete(synchronize_session=False)
     db.query(DemoInstance).filter(DemoInstance.id == demo_row.id).delete()
     db.query(TenantDatabaseCredential).filter(TenantDatabaseCredential.tenant_database_id == tenant_db.id).delete()
     db.query(TenantDatabase).filter(TenantDatabase.id == tenant_db.id).delete()
     db.query(SystemAccess).filter(SystemAccess.id == access_row.id).delete()
+    db.commit()
+    db.close()
+
+
+def test_convert_demo_to_production_provisions_and_assigns_hostname(
+    admin_client, two_tenants_with_users, demo_system
+):
+    tenant_a = two_tenants_with_users["tenant_a"]
+
+    create = admin_client.post(
+        "/api/admin/demos",
+        json={"tenant_id": str(tenant_a.id), "system_id": str(demo_system.id), "duration_days": 7},
+    )
+    assert create.status_code == 201, create.text
+    demo = create.json()
+    assert demo["hostname"] == f"demo-{tenant_a.slug}.nexatecpy.com"
+    demo_id = demo["id"]
+
+    convert = admin_client.post(f"/api/admin/demos/{demo_id}/convert-to-production")
+    assert convert.status_code == 200, convert.text
+    production = convert.json()
+    assert production["status"] == "READY"
+    # Hostname de produccion SIN el prefijo "demo-" -- nunca el mismo que
+    # el de la demo, y nunca reutiliza/renombra su base (ver
+    # convert_demo_to_production en app/routers/demos.py).
+    assert production["hostname"] == f"{tenant_a.slug}.nexatecpy.com"
+    assert production["hostname"] != demo["hostname"]
+
+    db = SessionLocal()
+    demo_row = db.get(DemoInstance, uuid.UUID(demo_id))
+    production_row = db.get(ProductionInstance, uuid.UUID(production["id"]))
+    demo_tenant_db = db.get(TenantDatabase, demo_row.tenant_database_id)
+    prod_tenant_db = db.get(TenantDatabase, production_row.tenant_database_id)
+
+    # Son dos bases fisicas distintas, nunca la misma renombrada.
+    assert demo_tenant_db.id != prod_tenant_db.id
+    assert demo_tenant_db.database_name != prod_tenant_db.database_name
+
+    resolved_demo = resolve_hostname(db, demo["hostname"])
+    resolved_prod = resolve_hostname(db, production["hostname"])
+    assert resolved_demo.tenant_id == tenant_a.id
+    assert resolved_demo.environment == Environment.DEMO
+    assert resolved_prod.tenant_id == tenant_a.id
+    assert resolved_prod.environment == Environment.PRODUCTION
+
+    # Cleanup: ambas DBs fisicas + todas las filas de registro.
+    tenant_db_manager.dispose_all()
+    force_drop_tenant_database_for_tests(demo_tenant_db.database_identifier)
+    force_drop_tenant_database_for_tests(prod_tenant_db.database_identifier)
+    db.query(TenantHostname).filter(
+        TenantHostname.tenant_id == tenant_a.id, TenantHostname.system_id == demo_system.id
+    ).delete(synchronize_session=False)
+    db.query(DemoInstance).filter(DemoInstance.id == demo_row.id).delete()
+    db.query(ProductionInstance).filter(ProductionInstance.id == production_row.id).delete()
+    db.query(TenantDatabaseCredential).filter(
+        TenantDatabaseCredential.tenant_database_id.in_([demo_tenant_db.id, prod_tenant_db.id])
+    ).delete(synchronize_session=False)
+    db.query(TenantDatabase).filter(TenantDatabase.id.in_([demo_tenant_db.id, prod_tenant_db.id])).delete(
+        synchronize_session=False
+    )
+    db.query(SystemAccess).filter(
+        SystemAccess.tenant_id == tenant_a.id, SystemAccess.system_id == demo_system.id
+    ).delete(synchronize_session=False)
     db.commit()
     db.close()
 
