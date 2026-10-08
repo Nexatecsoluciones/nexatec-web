@@ -63,8 +63,36 @@ Las tasas de IVA son datos (no constantes en código) y deben revisarse con
 un contador antes de producción. `valid_from = 1900-01-01` marca "carga
 inicial", no una fecha legal.
 
+## API de maestros (`/api/erp/{system_access_id}/...`)
+
+`app/routers/erp_masters.py`, sobre la base resuelta por
+`app/security/erp_context.py`:
+
+- Se exige **membresía activa real** en el tenant. El personal de NEXATEC
+  (incluido SUPER_ADMIN) no tiene acceso operacional implícito: si soporte
+  necesita entrar, se lo agrega como miembro y queda auditado.
+- Tenant `ACTIVE`, acceso `ACTIVE` y no vencido (se compara `expires_at` en
+  cada request, aunque el timer de barrido no haya corrido).
+- Lectura: cualquier miembro. Escritura: `CLIENT_ADMIN`.
+- Un no-miembro recibe 404 (no se confirma que el recurso exista).
+- Toda escritura queda en `audit_logs` del control plane.
+
+| Recurso | Operaciones |
+|---|---|
+| `currencies`, `units`, `taxes` (vigentes hoy) | GET |
+| `company` | GET, PUT (RUC validado por DV; la empresa demo no admite un RUC real) |
+| `branches`, `warehouses` | GET, POST, PATCH |
+| `product-categories` | GET, POST |
+| `products` | GET (búsqueda `q`, `active`, paginado `limit`≤200/`offset`), GET por id, POST, PATCH |
+| `parties` | GET (búsqueda, `role=customer|supplier`, paginado), GET por id, POST, PATCH |
+
+RUC: `app/services/ruc.py` valida solo el **formato** (DV módulo 11, mismo
+algoritmo que `python-stdnum`, probado con sus vectores publicados). Un RUC
+con DV correcto queda `FORMAT_OK`, nunca `VERIFIED_PROVIDER`.
+
 ## Qué NO existe todavía
 
-- Ningún endpoint de API ni pantalla usa estas tablas.
+- Pantallas (frontend) para estos maestros.
 - Movimientos de stock, ventas, compras, CxC/CxP, contabilidad.
 - Seed de la empresa demo ficticia.
+- Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).
