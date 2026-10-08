@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import fs from "node:fs";
 
 const cfg = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-const BASE = "https://staging.nexatecpy.com";
+const BASE = process.env.E2E_BASE_URL ?? "https://nexatecpy.com";
 const SHOTS = process.env.E2E_SHOTS ?? new URL("./shots/", import.meta.url).pathname;
 fs.mkdirSync(SHOTS, { recursive: true });
 

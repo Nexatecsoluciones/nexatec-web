@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 /**
  * BFF same-origin para archivos: el navegador solo conoce
- * https://staging.nexatecpy.com/storage/<bucket>/<key>?<firma>. Reenvia
+ * https://nexatecpy.com/storage/<bucket>/<key>?<firma>. Reenvia
  * server-side hacia Garage (S3 interno). Nunca se toca la query string
  * (contiene la firma SigV4) ni se agregan/quitan parametros -- Garage
  * necesita ver exactamente lo mismo que la API firmo (ver

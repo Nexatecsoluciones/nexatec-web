@@ -166,8 +166,8 @@ async def create_checkout(
         result = await bancard.create_single_buy(
             shop_process_id=shop_process_id, amount=amount, currency=currency,
             description=f"NEXATEC - {plan.name}",
-            return_url="https://staging.nexatecpy.com/portal",
-            cancel_url="https://staging.nexatecpy.com/portal",
+            return_url=get_settings().public_base_url.rstrip("/") + "/portal",
+            cancel_url=get_settings().public_base_url.rstrip("/") + "/portal",
         )
     except bancard.BancardNotConfiguredError:
         db.rollback()

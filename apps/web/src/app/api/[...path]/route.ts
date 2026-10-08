@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * BFF same-origin: el navegador SOLO conoce https://staging.nexatecpy.com/api/*.
+ * BFF same-origin: el navegador SOLO conoce https://nexatecpy.com/api/*.
  * Este handler reenvia server-side hacia la API interna
  * (NEXATEC_INTERNAL_API_URL, nunca NEXT_PUBLIC_ -- no llega al navegador).
  *

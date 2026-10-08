@@ -62,7 +62,7 @@ async def _check_cloudflare_tunnel() -> ServiceHealth:
         return ServiceHealth(name="Cloudflare Tunnel", status="UNKNOWN", detail="No aplica en development", checked_at=_now())
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get("https://staging.nexatecpy.com/api/health")
+            resp = await client.get(get_settings().public_base_url.rstrip("/") + "/api/health")
         status_str = "HEALTHY" if resp.status_code == 200 else "DEGRADED"
         return ServiceHealth(name="Cloudflare Tunnel", status=status_str, checked_at=_now())
     except Exception as exc:
