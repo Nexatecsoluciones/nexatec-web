@@ -227,3 +227,11 @@ def test_expired_access_and_suspended_tenant_are_blocked(erp):
     db.commit()
     assert erp["admin_a"].get(f"{erp['a']}/products").status_code == 200
     db.close()
+
+
+def test_context_endpoint(erp):
+    admin = erp["admin_a"].get(f"{erp['a']}/context").json()
+    viewer = erp["viewer_a"].get(f"{erp['a']}/context").json()
+    assert admin["can_write"] is True and viewer["can_write"] is False
+    assert admin["environment"] == "PRODUCTION" and admin["whatsapp_number"].isdigit()
+    assert erp["admin_b"].get(f"{erp['a']}/context").status_code == 404

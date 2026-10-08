@@ -254,6 +254,17 @@ def reverse(op: OpContext, movement_id: uuid.UUID) -> list[StockMovement]:
         return prev
     if original.movement_type == MovementType.REVERSAL:
         raise InventoryError("No se puede revertir una reversion.")
+    # Movimientos generados por un documento (entrega de venta, recepcion de
+    # compra) no se revierten sueltos: quedarian el documento y el stock
+    # desalineados. Se corrigen desde el documento (devolucion, etc.).
+    from app.tenant_models.purchases import PurchaseOrder
+    from app.tenant_models.sales import SalesOrder
+
+    if (original.group_id is not None and op.db.get(SalesOrder, original.group_id) is not None) or (
+        original.reference is not None
+        and op.db.execute(select(PurchaseOrder.id).where(PurchaseOrder.number == original.reference)).first()
+    ):
+        raise InventoryError("Este movimiento lo genero un documento: corregirlo desde el pedido u orden de compra.")
 
     if original.group_id is not None and original.movement_type in (MovementType.TRANSFER_IN, MovementType.TRANSFER_OUT):
         legs = op.db.execute(

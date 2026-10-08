@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     cloudflare_tunnel_id: str = Field(default="", alias="CLOUDFLARE_TUNNEL_ID")
     cloudflare_tunnel_service: str = Field(default="http://127.0.0.1:4302", alias="CLOUDFLARE_TUNNEL_SERVICE")
 
+    # Contacto comercial (CTA "Solicitar mi sistema por WhatsApp"). Solo
+    # digitos, formato internacional sin "+".
+    whatsapp_number: str = Field(default="595971205040", alias="NEXATEC_WHATSAPP_NUMBER", pattern=r"^[0-9]{8,15}$")
+
     @property
     def cloudflare_configured(self) -> bool:
         return bool(

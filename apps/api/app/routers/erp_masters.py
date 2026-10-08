@@ -5,6 +5,7 @@ miembro activo; escritura: CLIENT_ADMIN. Cada escritura queda auditada en el
 control plane (sin datos sensibles en metadata)."""
 
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -13,6 +14,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.audit import log_audit
+from app.core.config import get_settings
 from app.security.erp_context import ErpContext, get_erp_context, require_erp_write
 from app.services import ruc as ruc_service
 from app.tenant_models.core import (
@@ -65,6 +67,34 @@ def _apply(obj, updates: dict) -> None:
 class Page(BaseModel):
     total: int
     items: list
+
+
+# --- Contexto de la sesion del ERP ---------------------------------------------
+
+
+class ErpContextOut(BaseModel):
+    system_access_id: uuid.UUID
+    environment: str
+    expires_at: datetime | None
+    company_name: str | None
+    company_is_fictitious: bool
+    member_role: str
+    can_write: bool
+    whatsapp_number: str
+
+
+@router.get("/context", response_model=ErpContextOut)
+def erp_context(ctx: ErpContext = Depends(get_erp_context)):
+    """Lo que necesita la interfaz para armar el encabezado (empresa,
+    banner de demo con vencimiento, si mostrar acciones de escritura).
+    `can_write` es solo para la UI: cada endpoint vuelve a validar."""
+    company = ctx.db.get(Company, 1)
+    return ErpContextOut(
+        system_access_id=ctx.access.id, environment=ctx.access.environment.value, expires_at=ctx.access.expires_at,
+        company_name=company.legal_name if company else None,
+        company_is_fictitious=bool(company and company.ruc_is_fictitious), member_role=ctx.member_role.value,
+        can_write=ctx.can_write, whatsapp_number=get_settings().whatsapp_number,
+    )
 
 
 # --- Referencia (solo lectura) ----------------------------------------------

@@ -47,8 +47,10 @@ export default function PortalPage() {
   async function onAccess(systemAccessId: string) {
     setActionMessage(null);
     try {
-      const result = await api.requestAccess(systemAccessId);
-      setActionMessage(result.message);
+      // El servidor decide si corresponde (membresia, acceso activo, no
+      // vencido); recien entonces se abre el sistema.
+      await api.requestAccess(systemAccessId);
+      router.push(`/erp/${systemAccessId}`);
     } catch (err) {
       setActionMessage(err instanceof ApiError ? err.message : "No se pudo procesar el acceso.");
     }

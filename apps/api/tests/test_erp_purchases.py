@@ -187,3 +187,13 @@ def test_payments_and_aging(p):
     assert c.post(f"{base}/supplier-payments/{pay.json()['id']}/void", json={"reason": "transferencia rebotada"}).status_code == 200
     assert D(c.get(f"{base}/supplier-invoices/{inv['id']}").json()["balance_due"]) == D("110000")
     assert c.post(f"{base}/supplier-invoices/{inv['id']}/void", json={"reason": "factura mal cargada"}).json()["status"] == "VOIDED"
+
+
+def test_po_receipt_movement_cannot_be_reversed_directly(p):
+    c, base = p["c"], p["base"]
+    pid = p["product"]()
+    o = p["po"](p["supplier"](), [{"product_id": pid, "quantity": "3", "unit_price": "1100"}])
+    _receive(p, o["id"], 1, "3")
+    mov = c.get(f"{base}/stock/movements", params={"product_id": pid}).json()["items"][0]
+    assert c.post(f"{base}/stock/movements/{mov['id']}/reverse", json={"reason": "intento"}).status_code == 422
+    assert _stock(p, pid) == D("3")

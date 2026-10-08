@@ -208,3 +208,16 @@ def test_concurrent_confirmations_never_overreserve(s):
     [t.join() for t in threads]
     assert results.count("ok") == 3 and results.count("no") == 3
     assert _bal(s, pid) == (D("10"), D("9"))
+
+
+def test_delivery_movement_cannot_be_reversed_directly(s):
+    c, base = s["c"], s["base"]
+    pid = s["product"]("NOREV-1", "1000", stock="5")
+    o = _order(s, [{"product_id": pid, "quantity": "2"}]).json()
+    c.post(f"{base}/sales/orders/{o['id']}/confirm")
+    c.post(f"{base}/sales/orders/{o['id']}/deliver")
+    issue = next(m for m in c.get(f"{base}/stock/movements", params={"product_id": pid}).json()["items"]
+                 if m["movement_type"] == "ISSUE")
+    r = c.post(f"{base}/stock/movements/{issue['id']}/reverse", json={"reason": "intento"})
+    assert r.status_code == 422 and "documento" in r.json()["detail"]
+    assert _bal(s, pid) == (D("3"), D("0"))

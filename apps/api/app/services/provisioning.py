@@ -146,7 +146,10 @@ def force_drop_tenant_database_for_tests(identifier: str) -> None:
                 # parcialmente inconsistente en un test anterior). No es
                 # motivo para no intentar el DROP igual.
                 conn.rollback()
-            cur.execute(sql.SQL("DROP DATABASE IF EXISTS {db}").format(db=sql.Identifier(identifier)))
+            # WITH (FORCE): cierra conexiones abiertas a ESA base (p.ej. el pool
+            # de la API en vivo). Solo puede terminar sesiones del rol del
+            # tenant, del que nexatec_provisioner es miembro transitorio aca.
+            cur.execute(sql.SQL("DROP DATABASE IF EXISTS {db} WITH (FORCE)").format(db=sql.Identifier(identifier)))
             cur.execute(sql.SQL("DROP ROLE IF EXISTS {role}").format(role=sql.Identifier(identifier)))
 
 

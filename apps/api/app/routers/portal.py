@@ -72,9 +72,8 @@ def request_access(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Backend del boton "Acceder": el frontend nunca construye una URL
-    interna, solo pide el destino y la API decide si corresponde. Sin
-    gateway todavia (FASE 7), devuelve un estado honesto en vez de una URL
-    o de datos de infraestructura interna."""
+    interna, solo pide el destino y la API decide si corresponde. Devuelve
+    una ruta relativa de la propia web (nunca un host/puerto interno)."""
     access = db.get(SystemAccess, system_access_id)
     if access is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado.")
@@ -89,4 +88,4 @@ def request_access(
     if access.expires_at is not None and access.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="El acceso esta vencido.")
 
-    return {"status": "not_published_yet", "message": "Entorno preparado. Publicacion pendiente."}
+    return {"status": "ok", "message": "Acceso habilitado.", "url": f"/erp/{access.id}"}
