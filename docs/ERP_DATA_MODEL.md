@@ -90,9 +90,26 @@ RUC: `app/services/ruc.py` valida solo el **formato** (DV módulo 11, mismo
 algoritmo que `python-stdnum`, probado con sus vectores publicados). Un RUC
 con DV correcto queda `FORMAT_OK`, nunca `VERIFIED_PROVIDER`.
 
+## Empresa demo ficticia (`app/services/demo_seed.py`)
+
+Al aprovisionar una base de **DEMO** (nunca PRODUCTION) se carga, en una
+sola transacción y de forma idempotente:
+
+- `NEXATEC Empresa Demo S.A. — SIMULACIÓN`, con `ruc_is_fictitious = true`.
+- 1 sucursal (establecimiento `001`), 2 depósitos, 4 categorías.
+- 12 productos/servicios con precios y costos plausibles en guaraníes
+  (IVA 10% y 5% según el rubro); los servicios no manejan stock.
+- 6 clientes, 3 proveedores y 1 mixto, todos con nombres de fantasía
+  evidentes y emails `@ejemplo.invalid`.
+- Todos los RUC en el rango `999xxxxx` con DV válido y estado
+  `FICTITIOUS` (las personas jurídicas reales arrancan en 80.000.000).
+
+Si la carga falla, la base queda `FAILED` y la demo no se activa. Las bases
+de producción arrancan **vacías**.
+
 ## Qué NO existe todavía
 
 - Pantallas (frontend) para estos maestros.
 - Movimientos de stock, ventas, compras, CxC/CxP, contabilidad.
-- Seed de la empresa demo ficticia.
+- Historia transaccional en la demo (ventas/compras de 3-6 meses): depende de que existan esos módulos.
 - Matriz de permisos granular (hoy solo CLIENT_ADMIN escribe / CLIENT_USER lee).

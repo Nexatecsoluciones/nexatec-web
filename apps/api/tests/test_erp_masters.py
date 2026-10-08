@@ -62,14 +62,16 @@ def erp():
         TenantUser(tenant_id=tenant_a.id, user_id=viewer_a.id, role=TenantMemberRole.CLIENT_USER, status=TenantMemberStatus.ACTIVE),
         TenantUser(tenant_id=tenant_b.id, user_id=admin_b.id, role=TenantMemberRole.CLIENT_ADMIN, status=TenantMemberStatus.ACTIVE),
     ])
-    access_a = SystemAccess(tenant_id=tenant_a.id, system_id=system.id, environment=Environment.DEMO,
+    # PRODUCTION a proposito: arranca vacia (las DEMO vienen con la empresa
+    # ficticia precargada, ver tests/test_demo_seed.py).
+    access_a = SystemAccess(tenant_id=tenant_a.id, system_id=system.id, environment=Environment.PRODUCTION,
                             status=SystemAccessStatus.ACTIVE, expires_at=datetime.now(timezone.utc) + timedelta(days=7))
-    access_b = SystemAccess(tenant_id=tenant_b.id, system_id=system.id, environment=Environment.DEMO,
+    access_b = SystemAccess(tenant_id=tenant_b.id, system_id=system.id, environment=Environment.PRODUCTION,
                             status=SystemAccessStatus.ACTIVE, expires_at=datetime.now(timezone.utc) + timedelta(days=7))
     db.add_all([access_a, access_b])
     db.commit()
-    db_a = provision_tenant_database(db, tenant_a.id, system.id, Environment.DEMO)
-    db_b = provision_tenant_database(db, tenant_b.id, system.id, Environment.DEMO)
+    db_a = provision_tenant_database(db, tenant_a.id, system.id, Environment.PRODUCTION)
+    db_b = provision_tenant_database(db, tenant_b.id, system.id, Environment.PRODUCTION)
 
     ctx = {
         "a": f"/api/erp/{access_a.id}", "b": f"/api/erp/{access_b.id}",

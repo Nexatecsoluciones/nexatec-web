@@ -30,7 +30,7 @@ def provisioned():
     db.add_all([system, tenant])
     db.commit()
 
-    tenant_db = provision_tenant_database(db, tenant.id, system.id, Environment.DEMO)
+    tenant_db = provision_tenant_database(db, tenant.id, system.id, Environment.PRODUCTION)
     engine = tenant_db_manager.get_engine(tenant_db, tenant_db.credential)
     yield {"db": db, "tenant_db": tenant_db, "engine": engine}
 

@@ -238,4 +238,19 @@ def provision_tenant_database(
         control_db.commit()
         raise ProvisioningError("No se pudo crear el esquema de la base.") from exc
 
+    # Solo DEMO: empresa ficticia precargada. Produccion arranca vacia,
+    # nunca con datos inventados.
+    if environment == Environment.DEMO:
+        from app.services.demo_seed import seed_demo_company
+        from app.services.tenant_db_manager import tenant_db_manager
+
+        try:
+            seed_demo_company(tenant_db_manager.get_engine(tenant_db, tenant_db.credential))
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("demo_seed_failed tenant_database_id=%s", tenant_db.id)
+            tenant_db.status = ProvisioningStatus.FAILED
+            tenant_db.last_error = f"{type(exc).__name__} al cargar datos demo."
+            control_db.commit()
+            raise ProvisioningError("No se pudieron cargar los datos de la demo.") from exc
+
     return tenant_db
