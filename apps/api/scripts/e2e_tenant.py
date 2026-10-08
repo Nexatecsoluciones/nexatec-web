@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.core.db import SessionLocal  # noqa: E402
 from app.models import control_center, control_plane, media, payments, system, tenancy  # noqa: E402,F401
-from app.models.control_plane import AuditLog, Tenant, User, UserSession  # noqa: E402
+from app.models.control_plane import AuditLog, PasswordResetToken, Tenant, User, UserSession  # noqa: E402
 from app.models.system import System  # noqa: E402
 from app.models.tenancy import SystemAccess, TenantDatabase, TenantDatabaseCredential, TenantUser  # noqa: E402
 from app.models.tenancy_enums import (  # noqa: E402
@@ -114,6 +114,7 @@ def destroy_admin(path: str) -> None:
             raise SystemExit(f"Me niego: {user.email} no es un admin de prueba.")
         from app.models.control_plane import SecurityEvent
         db.query(UserSession).filter(UserSession.user_id == user.id).delete(synchronize_session=False)
+        db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete(synchronize_session=False)
         db.query(SecurityEvent).filter(SecurityEvent.user_id == user.id).delete(synchronize_session=False)
         db.query(AuditLog).filter(AuditLog.actor_user_id == user.id).delete(synchronize_session=False)
         db.delete(user)

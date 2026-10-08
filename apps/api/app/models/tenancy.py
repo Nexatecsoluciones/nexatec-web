@@ -196,6 +196,11 @@ class DemoInstance(Base):
     reset_policy: Mapped[str] = mapped_column(String(40), nullable=False, default="manual")
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Avisos por email ya enviados (cada uno una sola vez). Se limpian al
+    # renovar la demo, para que el nuevo vencimiento vuelva a avisar.
+    reminder_3d_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reminder_1d_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expired_notice_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

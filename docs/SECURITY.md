@@ -238,3 +238,21 @@ visibles (se encontraron y borraron 2 tenants, 3 usuarios y 2 sistemas de
 prueba). Ahora `tests/conftest.py` fuerza `nexatec_control_test` (mismo
 dueño `nexatec_app`, sin acceso público), la migra a head al arrancar, y
 aborta si detecta que apunta a `nexatec_control`.
+
+
+## Emails transaccionales (Brevo) — estado 2026-10-08
+
+Implementado (`app/services/email.py`): recuperación de contraseña,
+invitación de usuarios (Control Center, alta en un cliente, aprobación de
+demo) y avisos de demo a 3 días, 1 día y vencida (desde el timer de
+barrido, cada uno una sola vez y solo a los administradores del cliente).
+Pantallas `/recuperar` y `/restablecer` (enlace de un solo uso; probado en
+navegador). Las invitaciones vencen a las 72 h; la recuperación a los 30 min.
+
+**Pendiente del propietario (bloqueante para que salgan emails):** no hay
+credenciales de Brevo en el servidor. Hace falta: (1) API key de Brevo,
+(2) remitente o dominio `nexatecpy.com` verificado en Brevo, (3) los
+registros SPF/DKIM que Brevo indique, publicados en Cloudflare (se pueden
+crear con el token de Cloudflare ya configurado). Hasta entonces no se
+envía nada y todo lo demás funciona; los avisos de demo quedan pendientes y
+salen cuando se configure.

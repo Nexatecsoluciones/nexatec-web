@@ -138,6 +138,7 @@ export default function LoginPage() {
             <Button type="submit" disabled={loading} className="mt-2 w-full">
               {loading ? "Ingresando..." : "Ingresar"}
             </Button>
+            <a href="/recuperar" className="text-center text-sm text-nx-muted hover:text-nx-accent">Olvide mi contrasena</a>
           </form>
         </Card>
         )}

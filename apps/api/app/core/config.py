@@ -105,6 +105,14 @@ class Settings(BaseSettings):
     self_checkout_card_enabled: bool = Field(default=False, alias="NEXATEC_SELF_CHECKOUT_CARD_ENABLED")
     self_checkout_transfer_enabled: bool = Field(default=False, alias="NEXATEC_SELF_CHECKOUT_TRANSFER_ENABLED")
 
+    # Email transaccional (Brevo). Vacio = no se envian emails (best-effort,
+    # ver app/services/email.py). El remitente debe estar verificado en Brevo.
+    brevo_api_key: str = Field(default="", alias="BREVO_API_KEY")
+    email_from_address: str = Field(default="", alias="NEXATEC_EMAIL_FROM")
+    email_from_name: str = Field(default="NEXATEC", alias="NEXATEC_EMAIL_FROM_NAME")
+    # URL publica de la web, para armar enlaces en los emails.
+    public_base_url: str = Field(default="http://127.0.0.1:4302", alias="NEXATEC_PUBLIC_BASE_URL")
+
     # Contacto comercial (CTA "Solicitar mi sistema por WhatsApp"). Solo
     # digitos, formato internacional sin "+".
     whatsapp_number: str = Field(default="595971205040", alias="NEXATEC_WHATSAPP_NUMBER", pattern=r"^[0-9]{8,15}$")

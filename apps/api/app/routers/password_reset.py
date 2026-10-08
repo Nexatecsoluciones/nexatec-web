@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.services import email as email_service
 from app.core.net import safe_ip
 from app.models.control_plane import AuditLog, PasswordResetToken, User
 from app.security.passwords import WeakPasswordError, hash_password
@@ -58,8 +59,9 @@ async def request_reset(
             )
         )
         db.commit()
-        # TODO(FASE en que se conecte el proveedor de email, ver docs/ARCHITECTURE.md):
-        # enviar `raw_token` por email al usuario. Nunca loggear el token en claro.
+        # Best-effort: sin Brevo configurado no sale nada (y la respuesta es
+        # identica igual, para no revelar si el email existe).
+        email_service.send_password_reset(user.email, raw_token, RESET_TOKEN_TTL_MINUTES)
 
     return {"ok": True}
 

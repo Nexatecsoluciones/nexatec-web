@@ -11,6 +11,7 @@ from app.core.audit import log_audit
 from app.core.db import get_db
 from app.core.net import safe_ip
 from app.core.tokens import hash_token, new_raw_token
+from app.services import email as email_service
 from app.models.control_plane import PasswordResetToken, Tenant, User
 from app.models.tenancy import TenantUser
 from app.models.tenancy_enums import TenantMemberRole, TenantMemberStatus, TenantStatus
@@ -23,7 +24,8 @@ router = APIRouter(prefix="/api/admin/tenants", tags=["admin", "tenants"])
 
 _SLUG_RE = re.compile(r"^[a-z0-9-]{2,80}$")
 
-INVITE_TOKEN_TTL_MINUTES = 30
+# Invitacion por email: el usuario puede abrirla horas despues.
+INVITE_TOKEN_TTL_MINUTES = 72 * 60
 
 
 # --- Schemas explicitos (anti mass-assignment): el cliente NUNCA puede
@@ -299,6 +301,8 @@ def assign_tenant_user(
     )
     db.commit()
     db.refresh(membership)
+    if invite_token is not None:
+        email_service.send_invitation(email, invite_token, INVITE_TOKEN_TTL_MINUTES // 60, tenant.display_name)
 
     return TenantUserOut(
         id=membership.id, tenant_id=membership.tenant_id, user_id=membership.user_id,

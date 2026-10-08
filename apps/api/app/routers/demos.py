@@ -9,16 +9,20 @@ from sqlalchemy.orm import Session
 from app.core.audit import log_audit
 from app.core.db import get_db
 from app.core.net import safe_ip
-from app.models.control_plane import Tenant
+from app.models.control_plane import Tenant, User
 from app.models.system import System
-from app.models.tenancy import DemoInstance, ProductionInstance, SystemAccess
+from app.models.tenancy import DemoInstance, ProductionInstance, SystemAccess, TenantUser
 from app.models.tenancy_enums import (
     Environment,
     ProvisioningStatus,
     SystemAccessStatus,
+    TenantMemberRole,
+    TenantMemberStatus,
     TenantStatus,
 )
 from app.security.rbac import require_admin_panel
+from app.core.config import get_settings
+from app.services import email as email_service
 from app.services import hostname_exposure
 from app.services.provisioning import ProvisioningError, provision_tenant_database
 
@@ -204,6 +208,7 @@ def renew_demo(
     base = demo.expires_at if demo.expires_at and demo.expires_at > datetime.now(timezone.utc) else datetime.now(timezone.utc)
     new_expiry = base + timedelta(days=payload.extra_days)
     demo.expires_at = new_expiry
+    demo.reminder_3d_sent_at = demo.reminder_1d_sent_at = demo.expired_notice_sent_at = None
     if access is not None:
         access.expires_at = new_expiry
         access.status = SystemAccessStatus.ACTIVE
@@ -308,8 +313,52 @@ def sweep_expired_demos(db: Session) -> int:
             action="DEMO_EXPIRED", resource=f"system_access:{access.id}",
             metadata={"reason": "sweep_expired", "demo_instance_id": str(demo.id) if demo else None},
         )
+        if demo is not None and demo.expired_notice_sent_at is None and _notify_admins(
+            db, access.tenant_id, lambda to, company: email_service.send_demo_expired(to, company, get_settings().whatsapp_number)
+        ):
+            demo.expired_notice_sent_at = now
     db.commit()
+    _send_expiry_reminders(db, now)
     return len(rows)
+
+
+def _notify_admins(db: Session, tenant_id: uuid.UUID, send) -> bool:
+    """Envia a los administradores activos del tenant. True si al menos un
+    email salio (si Brevo no esta configurado, False: el aviso queda
+    pendiente y sale cuando se configure)."""
+    tenant = db.get(Tenant, tenant_id)
+    emails = db.execute(
+        select(User.email).join(TenantUser, TenantUser.user_id == User.id).where(
+            TenantUser.tenant_id == tenant_id, TenantUser.role == TenantMemberRole.CLIENT_ADMIN,
+            TenantUser.status == TenantMemberStatus.ACTIVE, User.is_active.is_(True),
+        )
+    ).scalars().all()
+    sent = False
+    for address in emails:
+        sent = send(address, tenant.display_name if tenant else "tu empresa") or sent
+    return sent
+
+
+def _send_expiry_reminders(db: Session, now: datetime) -> None:
+    """Avisos a 3 dias y a 1 dia del vencimiento, cada uno una sola vez. Si
+    ya estamos a 1 dia, solo sale ese (no tiene sentido mandar los dos)."""
+    rows = db.execute(
+        select(DemoInstance, SystemAccess).join(SystemAccess, SystemAccess.id == DemoInstance.system_access_id).where(
+            SystemAccess.environment == Environment.DEMO, SystemAccess.status == SystemAccessStatus.ACTIVE,
+            SystemAccess.expires_at > now, SystemAccess.expires_at <= now + timedelta(days=3),
+        )
+    ).all()
+    wa = get_settings().whatsapp_number
+    for demo, access in rows:
+        days_left = max(1, -int(-(access.expires_at - now).total_seconds() // 86400))
+        if days_left <= 1 and demo.reminder_1d_sent_at is None:
+            if _notify_admins(db, access.tenant_id, lambda to, company: email_service.send_demo_expiring(to, company, 1, wa)):
+                demo.reminder_1d_sent_at = now
+                demo.reminder_3d_sent_at = demo.reminder_3d_sent_at or now
+        elif days_left > 1 and demo.reminder_3d_sent_at is None:
+            if _notify_admins(db, access.tenant_id, lambda to, company: email_service.send_demo_expiring(to, company, days_left, wa)):
+                demo.reminder_3d_sent_at = now
+    db.commit()
 
 
 @router.post("/sweep-expired", response_model=dict)

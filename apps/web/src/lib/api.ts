@@ -176,6 +176,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
     }),
+  requestPasswordReset: (email: string, turnstileToken: string) =>
+    request<{ ok: boolean }>("/api/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify({ email, turnstile_token: turnstileToken }),
+    }),
+  confirmPasswordReset: (token: string, newPassword: string) =>
+    request<{ ok: boolean }>("/api/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
   mfaVerify: (code: string) =>
     request<{ next: LoginStage }>("/api/auth/mfa/verify", { method: "POST", body: JSON.stringify({ code }) }),
   changePassword: (currentPassword: string, newPassword: string) =>

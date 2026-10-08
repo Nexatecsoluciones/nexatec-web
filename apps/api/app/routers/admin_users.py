@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import log_audit
 from app.core.db import get_db
 from app.core.tokens import hash_token, new_raw_token
+from app.services import email as email_service
 from app.models.control_plane import PasswordResetToken, User, UserSession
 from app.security.passwords import hash_password
 from app.security.rbac import require_admin_panel
@@ -17,7 +18,8 @@ from app.security.session_auth import CurrentUser, revoke_all_sessions_for_user
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin", "users"])
 
-INVITE_TOKEN_TTL_MINUTES = 30
+# Invitacion por email: el usuario puede abrirla horas despues.
+INVITE_TOKEN_TTL_MINUTES = 72 * 60
 
 
 class UserOut(BaseModel):
@@ -95,6 +97,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db), admin=Depend
                resource=f"user:{user.id}", metadata={"role": payload.role.value})
     db.commit()
     db.refresh(user)
+    email_service.send_invitation(user.email, raw_token, INVITE_TOKEN_TTL_MINUTES // 60)
     return UserCreateResult(user=user, invite_token=raw_token)
 
 
