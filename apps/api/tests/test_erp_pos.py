@@ -103,7 +103,7 @@ def test_barcodes_validation_and_lookup(t):
     gen = c.post(f"{base}/products/{pid}/barcodes/generate").json()
     assert gen["code"].startswith("NX") and gen["symbology"] == "CODE128" and gen["is_internal"] and gen["is_primary"]
     codes = c.get(f"{base}/products/{pid}/barcodes").json()
-    assert sum(1 for x in codes if x["is_primary"]) == 1 and len(codes) == 2
+    assert sum(1 for x in codes if x["is_primary"]) == 1 and len(codes) == 3  # + el interno de la demo
     other = t["p"]["BEB-JUGO-1L"]["id"]
     assert c.post(f"{base}/products/{other}/barcodes", json={"code": "7840000000005"}).status_code == 409
     assert c.get(f"{base}/pos/lookup", params={"code": "7840000000005"}).json()["sku"] == "BEB-AGUA-500"
