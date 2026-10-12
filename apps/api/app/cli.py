@@ -12,6 +12,11 @@ Uso:
     python -m app.cli reset-mfa <email>
     python -m app.cli sweep-expired-demos
     python -m app.cli migrate-tenants
+    python -m app.cli create-agent-sandbox [--name "Sandbox ChatGPT"]
+    python -m app.cli agent-key <system_access_id> [--name ...] [--days 90]
+    python -m app.cli list-agent-keys
+    python -m app.cli revoke-agent-key <prefijo>
+    python -m app.cli reset-agent-sandbox <system_access_id> --yes
 """
 
 import argparse
@@ -259,6 +264,93 @@ def cmd_migrate_tenants(_args: argparse.Namespace) -> int:
         db.close()
 
 
+def _print_key(raw: str) -> None:
+    print("\nLLAVE DE API (se muestra UNA sola vez; guardala en ChatGPT > Acciones > Autenticacion > Bearer):")
+    print(f"  {raw}\n")
+
+
+def cmd_create_agent_sandbox(args: argparse.Namespace) -> int:
+    from app.core.config import get_settings
+    from app.services.agent_sandbox import SandboxError, create_sandbox
+
+    db = SessionLocal()
+    try:
+        access, raw = create_sandbox(db, name=args.name)
+    except SandboxError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        db.close()
+    base = get_settings().public_base_url.rstrip("/")
+    print(f"Sandbox creado. system_access_id: {access.id}")
+    print(f"Especificacion para el GPT: {base}/api/agent/openapi.json")
+    _print_key(raw)
+    return 0
+
+
+def cmd_agent_key(args: argparse.Namespace) -> int:
+    from app.services.agent_sandbox import SandboxError, new_key
+
+    db = SessionLocal()
+    try:
+        raw = new_key(db, uuid.UUID(args.access_id), args.name, args.days)
+    except (SandboxError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        db.close()
+    _print_key(raw)
+    return 0
+
+
+def cmd_list_agent_keys(_args: argparse.Namespace) -> int:
+    from datetime import datetime, timezone
+
+    from app.models.api_keys import ApiKey
+
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    try:
+        for k in db.execute(select(ApiKey).order_by(ApiKey.created_at.desc())).scalars():
+            state = "REVOCADA" if k.revoked_at else ("vencida" if k.expires_at < now else "activa")
+            used = f"{k.last_used_at:%Y-%m-%d %H:%M}" if k.last_used_at else "nunca"
+            print(f"{k.prefix}...  {state:9} acceso={k.system_access_id}  vence={k.expires_at:%Y-%m-%d}  "
+                  f"ultimo uso={used}  ({k.name})")
+    finally:
+        db.close()
+    return 0
+
+
+def cmd_revoke_agent_key(args: argparse.Namespace) -> int:
+    from app.services.agent_sandbox import revoke_key
+
+    db = SessionLocal()
+    try:
+        n = revoke_key(db, args.prefix)
+    finally:
+        db.close()
+    print(f"{n} llave(s) revocada(s).")
+    return 0 if n else 1
+
+
+def cmd_reset_agent_sandbox(args: argparse.Namespace) -> int:
+    from app.services.agent_sandbox import SandboxError, reset_sandbox
+
+    if not args.yes:
+        print("Esto BORRA y recrea la base del sandbox (solo sandboxes de agente). Repetir con --yes.", file=sys.stderr)
+        return 1
+    db = SessionLocal()
+    try:
+        reset_sandbox(db, uuid.UUID(args.access_id))
+    except (SandboxError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        db.close()
+    print("Sandbox reiniciado con los datos de demo iniciales. Las llaves siguen valiendo.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="CLI administrativo de NEXATEC")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -279,6 +371,19 @@ def main() -> int:
     sub.add_parser("sweep-expired-demos", help="Marca EXPIRED los entitlements de demo vencidos")
     sub.add_parser("migrate-tenants", help="Lleva todas las bases de tenant READY a la ultima migracion")
 
+    p_sb = sub.add_parser("create-agent-sandbox", help="Crea una demo propia para un agente (ChatGPT) y su llave de API")
+    p_sb.add_argument("--name", default="Sandbox ChatGPT")
+    p_key = sub.add_parser("agent-key", help="Emite otra llave de API para un sandbox de agente")
+    p_key.add_argument("access_id")
+    p_key.add_argument("--name", default="Llave adicional")
+    p_key.add_argument("--days", type=int, default=90)
+    sub.add_parser("list-agent-keys", help="Lista llaves de API (solo prefijos)")
+    p_rev = sub.add_parser("revoke-agent-key", help="Revoca una llave por su prefijo (nxk_...)")
+    p_rev.add_argument("prefix")
+    p_reset = sub.add_parser("reset-agent-sandbox", help="Borra y recrea la base de un sandbox de agente")
+    p_reset.add_argument("access_id")
+    p_reset.add_argument("--yes", action="store_true")
+
     args = parser.parse_args()
     handlers = {
         "create-superadmin": cmd_create_superadmin,
@@ -288,6 +393,11 @@ def main() -> int:
         "reset-mfa": cmd_reset_mfa,
         "sweep-expired-demos": cmd_sweep_expired_demos,
         "migrate-tenants": cmd_migrate_tenants,
+        "create-agent-sandbox": cmd_create_agent_sandbox,
+        "agent-key": cmd_agent_key,
+        "list-agent-keys": cmd_list_agent_keys,
+        "revoke-agent-key": cmd_revoke_agent_key,
+        "reset-agent-sandbox": cmd_reset_agent_sandbox,
     }
     return handlers[args.command](args)
 

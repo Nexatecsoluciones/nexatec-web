@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.routers import (
     admin_users,
+    agent,
     auth,
     config_center,
     dashboard,
@@ -105,6 +106,7 @@ app.include_router(system_access.router)
 app.include_router(demos.router)
 app.include_router(portal.router)
 app.include_router(public_hostname.router)
+app.include_router(agent.router)
 app.include_router(public_hr.router)
 app.include_router(site_content.public_router)
 app.include_router(site_content.admin_router)

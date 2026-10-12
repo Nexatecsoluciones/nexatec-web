@@ -22,6 +22,7 @@ from app.core.db import get_db
 from app.models.control_plane import Tenant
 from app.models.tenancy import SystemAccess, TenantDatabase, TenantUser
 from app.models.tenancy_enums import (
+    Environment,
     ProvisioningStatus,
     SystemAccessStatus,
     TenantMemberRole,
@@ -29,7 +30,8 @@ from app.models.tenancy_enums import (
     TenantStatus,
 )
 from app.security.erp_permissions import permissions_for
-from app.security.session_auth import CurrentUser, get_current_user
+from app.security.api_keys import get_erp_user
+from app.security.session_auth import CurrentUser
 from app.services.tenant_db_manager import TenantDatabaseUnavailable, tenant_db_manager
 
 
@@ -93,11 +95,18 @@ def open_tenant_session(control_db: Session, access: SystemAccess) -> Session:
 def get_erp_context(
     system_access_id: uuid.UUID,
     control_db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_erp_user),
 ) -> Generator[ErpContext, None, None]:
     access = control_db.get(SystemAccess, system_access_id)
     if access is None:
         raise _not_found()
+    if user.api_key_access_id is not None:
+        # Una llave de API solo opera en SU acceso, y solo si es DEMO: nunca
+        # datos reales de una empresa.
+        if access.id != user.api_key_access_id:
+            raise _not_found()
+        if access.environment != Environment.DEMO:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Las llaves de API solo operan en demos.")
 
     membership = control_db.execute(
         select(TenantUser).where(

@@ -4,6 +4,7 @@
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 
+import app.models.api_keys  # noqa: F401
 import app.models.control_center  # noqa: F401
 import app.models.control_plane  # noqa: F401
 import app.models.media  # noqa: F401

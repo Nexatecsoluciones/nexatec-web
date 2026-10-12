@@ -25,6 +25,10 @@ class CurrentUser:
     email: str
     role: Role
     mfa_enabled: bool = False
+    # Solo si entro con llave de API (app/security/api_keys.py): el unico
+    # acceso de sistema donde puede operar.
+    api_key_access_id: UUID | None = None
+    api_key_id: UUID | None = None
 
 
 # Etapas de una sesion. Solo FULL sirve para operar; las otras son
