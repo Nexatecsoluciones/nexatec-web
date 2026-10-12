@@ -20,7 +20,9 @@ MODULES = ("settings", "products", "parties", "inventory", "sales", "receivables
 
 ALL_READ = {f"{m}:read" for m in MODULES}
 ALL_WRITE = {f"{m}:write" for m in MODULES if m != "dashboard"}
-SPECIAL = {"sales:deliver", "purchases:receive", "accounting:periods", "hr:attendance", "hr:payroll", "hr:amounts"}
+SPECIAL = {"sales:deliver", "purchases:receive", "accounting:periods", "hr:attendance", "hr:payroll", "hr:amounts",
+           # Mostrador: vender, operar SU caja, supervisar cajas/anular, cambiar precios.
+           "pos:sell", "cash:operate", "cash:manage", "pos:discount"}
 
 PERMISSIONS: dict[R, frozenset[str]] = {
     R.CLIENT_ADMIN: frozenset(ALL_READ | ALL_WRITE | SPECIAL),
@@ -28,14 +30,16 @@ PERMISSIONS: dict[R, frozenset[str]] = {
     R.CLIENT_USER: frozenset(ALL_READ),
     R.AUDITOR: frozenset(ALL_READ | {"hr:amounts"}),
     R.MANAGER: frozenset(ALL_READ | {"products:write", "parties:write", "sales:write", "purchases:write",
-                                     "crm:write", "hr:amounts"}),
+                                     "crm:write", "hr:amounts", "pos:sell", "cash:operate", "cash:manage",
+                                     "pos:discount"}),
     R.FINANCE: frozenset(ALL_READ | {"parties:write", "receivables:write", "payables:write",
-                                     "accounting:write", "accounting:periods", "hr:payroll", "hr:amounts"}),
+                                     "accounting:write", "accounting:periods", "hr:payroll", "hr:amounts",
+                                     "cash:operate", "cash:manage"}),
     R.ACCOUNTANT: frozenset(ALL_READ | {"accounting:write", "accounting:periods", "hr:amounts"}),
     # Ventas: no ve contabilidad, ni proveedores/pagos, ni el tablero de montos.
     R.SALES: frozenset({"settings:read", "products:read", "parties:read", "inventory:read", "sales:read",
                         "receivables:read", "crm:read", "parties:write", "sales:write", "sales:deliver",
-                        "crm:write"}),
+                        "crm:write", "pos:sell", "cash:operate"}),
     R.PURCHASING: frozenset({"settings:read", "products:read", "parties:read", "inventory:read", "purchases:read",
                              "payables:read", "parties:write", "products:write", "purchases:write", "purchases:receive"}),
     # Deposito: mueve mercaderia; ve pedidos y ordenes para entregar/recibir,

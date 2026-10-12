@@ -33,8 +33,9 @@ router = APIRouter(prefix="/api/agent", tags=["agent"])
 
 MODULES: dict[str, tuple[str, list[str]]] = {
     "base": ("Empresa, maestros, stock y tablero", ["context", "company", "branches", "warehouses", "units", "taxes",
-                                                     "currencies", "product-categories", "products", "parties", "stock",
-                                                     "dashboard"]),
+                                                     "currencies", "product-categories", "products", "products-labels", "parties",
+                                                     "stock", "dashboard"]),
+    "mostrador": ("Venta rapida, caja, turnos y arqueos", ["pos"]),
     "ventas": ("Pedidos, facturas internas, cobros, notas de credito y cuentas por cobrar",
                ["sales", "invoices", "receipts", "credit-notes", "receivables"]),
     "compras": ("Ordenes de compra, facturas de proveedor, pagos y cuentas por pagar",
@@ -186,7 +187,7 @@ def _catalog(app_openapi: dict, module: str | None) -> list[dict]:
 
 
 @router.get("/catalog", operation_id="catalog", summary="Rutas del ERP con parametros y cuerpos (resumidos)")
-def catalog(request: Request, module: Literal["base", "ventas", "compras", "contabilidad", "crm", "rrhh"] | None = None,
+def catalog(request: Request, module: Literal["base", "mostrador", "ventas", "compras", "contabilidad", "crm", "rrhh"] | None = None,
             user: CurrentUser = Depends(agent_user)):
     return {"modules": {k: v[0] for k, v in MODULES.items()}, "routes": _catalog(request.app.openapi(), module)}
 
@@ -248,7 +249,7 @@ def _referenced_schemas(node: Any, all_schemas: dict) -> dict:
 
 
 @router.get("/openapi.json", include_in_schema=False)
-def agent_openapi(request: Request, module: Literal["base", "ventas", "compras", "contabilidad", "crm", "rrhh"] | None = None):
+def agent_openapi(request: Request, module: Literal["base", "mostrador", "ventas", "compras", "contabilidad", "crm", "rrhh"] | None = None):
     """Publica (no contiene secretos). Sin `module`: las 4 operaciones del
     agente (recomendado: alcanza para todo el ERP). Con `module`: ademas las
     rutas de ese modulo como operaciones propias."""
