@@ -32,8 +32,33 @@ class SandboxError(Exception):
     pass
 
 
+class SandboxExists(SandboxError):
+    def __init__(self, access_id: uuid.UUID | None, db_status: str | None):
+        super().__init__("Ya existe un sandbox con ese nombre: no se crea otro.")
+        self.access_id = access_id
+        self.db_status = db_status
+
+
+def find_sandbox(db: Session, name: str) -> tuple[uuid.UUID | None, str | None] | None:
+    """(system_access_id, estado de su base) del sandbox con ese nombre, o None."""
+    tenant = db.execute(select(Tenant).where(Tenant.slug.like(f"{SLUG_PREFIX}%"), Tenant.display_name == name)
+                        .order_by(Tenant.created_at)).scalars().first()
+    if tenant is None:
+        return None
+    access = db.execute(select(SystemAccess).where(SystemAccess.tenant_id == tenant.id,
+                                                   SystemAccess.environment == Environment.DEMO)).scalars().first()
+    tdb = db.execute(select(TenantDatabase).where(TenantDatabase.tenant_id == tenant.id)).scalars().first()
+    return (access.id if access else None, tdb.status.value if tdb else None)
+
+
 def create_sandbox(db: Session, name: str = "Sandbox ChatGPT", system_slug: str = "erp",
-                   key_days: int = 90) -> tuple[SystemAccess, str]:
+                   key_days: int = 90) -> tuple[uuid.UUID, str]:
+    """Devuelve (system_access_id, llave en claro). Ids como valores simples:
+    los objetos ORM se expiran en cada commit y no se leen despues de cerrar
+    la sesion (causa del DetachedInstanceError del CLI original)."""
+    existing = find_sandbox(db, name)
+    if existing is not None:
+        raise SandboxExists(*existing)
     system = db.execute(select(System).where(System.slug == system_slug)).scalar_one_or_none()
     if system is None:
         raise SandboxError(f"No existe el sistema '{system_slug}'.")
@@ -54,11 +79,13 @@ def create_sandbox(db: Session, name: str = "Sandbox ChatGPT", system_slug: str 
     access = SystemAccess(tenant_id=tenant.id, system_id=system.id, environment=Environment.DEMO,
                           status=SystemAccessStatus.ACTIVE, expires_at=datetime.now(timezone.utc) + timedelta(days=365))
     db.add(access)
+    db.flush()
+    access_id, tenant_id, system_id, user_id = access.id, tenant.id, system.id, user.id
     db.commit()
-    provision_tenant_database(db, tenant.id, system.id, Environment.DEMO)
-    _, raw = api_keys.issue(db, name=f"{name} - llave inicial", user_id=user.id, system_access_id=access.id, days=key_days)
+    provision_tenant_database(db, tenant_id, system_id, Environment.DEMO)
+    _, raw = api_keys.issue(db, name=f"{name} - llave inicial", user_id=user_id, system_access_id=access_id, days=key_days)
     db.commit()
-    return access, raw
+    return access_id, raw
 
 
 def _sandbox_access(db: Session, access_id) -> tuple[SystemAccess, Tenant]:

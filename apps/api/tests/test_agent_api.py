@@ -27,7 +27,8 @@ def sb():
                     demo_available=True, production_available=True, is_active=True)
     db.add(system)
     db.commit()
-    access, raw = agent_sandbox.create_sandbox(db, name="Sandbox Pytest", system_slug=system.slug)
+    access_id, raw = agent_sandbox.create_sandbox(db, name=f"Sandbox Pytest {sfx}", system_slug=system.slug)
+    access = db.get(SystemAccess, access_id)
     # Un acceso de PRODUCCION del mismo tenant y una llave atada a el (no deberia servir).
     prod = SystemAccess(tenant_id=access.tenant_id, system_id=system.id, environment=Environment.PRODUCTION,
                         status=SystemAccessStatus.ACTIVE, expires_at=datetime.now(timezone.utc) + timedelta(days=1))
@@ -126,7 +127,12 @@ def test_catalog_and_openapi(sb):
     mod = _c().get("/api/agent/openapi.json", params={"module": "crm"}).json()
     ids = [op["operationId"] for p in mod["paths"].values() for op in p.values()]
     assert len(ids) == len(set(ids)) and all(len(i) <= 64 for i in ids) and len(ids) <= 30
-    assert spec["components"]["securitySchemes"]["apiKey"]["scheme"] == "bearer"
+    assert spec["components"]["securitySchemes"]["apiKey"]["scheme"] == "bearer" and spec["security"] == [{"apiKey": []}]
+    # Sin header/cookie de autenticacion como parametros sueltos y sin esquemas que no se usan.
+    for s in (spec, mod):
+        names = {x["name"] for p in s["paths"].values() for op in p.values() for x in op.get("parameters", [])}
+        assert not names & {"authorization", "nexatec_session"}
+    assert set(spec["components"]["schemas"]) <= {"CallIn", "HTTPValidationError", "ValidationError"}
 
 
 def test_reset_only_for_sandboxes(sb):
@@ -140,5 +146,63 @@ def test_reset_only_for_sandboxes(sb):
         agent_sandbox.reset_sandbox(db, uuid.UUID(sb["access"]))
         after = c.post("/api/agent/call", json={"method": "GET", "path": "/crm/leads"}).json()
         assert after["status"] == 200 and after["data"]["total"] == 3
+    finally:
+        db.close()
+
+
+def test_cli_create_is_safe_and_not_duplicated(sb, capsys):
+    """Regresion: el CLI fallaba con DetachedInstanceError al imprimir el
+    acceso (la llave nunca se mostraba). Ahora imprime acceso y llave, y una
+    segunda corrida con el mismo nombre no crea otro sandbox."""
+    import argparse
+
+    from app import cli
+
+    db = SessionLocal()
+    name = f"Sandbox CLI {uuid.uuid4().hex[:6]}"
+    try:
+        assert cli.cmd_create_agent_sandbox(argparse.Namespace(name=name, system=sb["system"])) == 0
+        out = capsys.readouterr().out
+        assert "system_access_id:" in out and "nxk_" in out
+        access_id = out.split("system_access_id:")[1].split()[0]
+        assert cli.cmd_create_agent_sandbox(argparse.Namespace(name=name, system=sb["system"])) == 2
+        err = capsys.readouterr().err
+        assert access_id in err and "No se creo otro" in err and "nxk_" not in err
+        assert db.query(Tenant).filter(Tenant.display_name == name).count() == 1
+    finally:
+        tenant = db.query(Tenant).filter(Tenant.display_name == name).one_or_none()
+        if tenant is not None:
+            for tdb in db.query(TenantDatabase).filter(TenantDatabase.tenant_id == tenant.id).all():
+                force_drop_tenant_database_for_tests(tdb.database_identifier)
+                db.query(TenantDatabaseCredential).filter(TenantDatabaseCredential.tenant_database_id == tdb.id).delete()
+                db.query(TenantDatabase).filter(TenantDatabase.id == tdb.id).delete()
+            uids = [u for (u,) in db.query(TenantUser.user_id).filter(TenantUser.tenant_id == tenant.id).all()]
+            db.query(ApiKey).filter(ApiKey.user_id.in_(uids)).delete(synchronize_session=False)
+            db.query(TenantUser).filter(TenantUser.tenant_id == tenant.id).delete()
+            db.query(SystemAccess).filter(SystemAccess.tenant_id == tenant.id).delete()
+            db.query(User).filter(User.id.in_(uids)).delete(synchronize_session=False)
+            db.query(Tenant).filter(Tenant.id == tenant.id).delete()
+            db.commit()
+        db.close()
+
+
+def test_rate_limit_expiry_and_audit(sb, monkeypatch):
+    db = SessionLocal()
+    try:
+        key, raw = api_keys.issue(db, name="rate", user_id=sb["user_id"], system_access_id=uuid.UUID(sb["access"]))
+        db.commit()
+        days = (key.expires_at - datetime.now(timezone.utc)).days
+        assert 89 <= days <= 90
+        monkeypatch.setattr(api_keys, "RATE_PER_MINUTE", 3)
+        c = _c(raw)
+        assert [c.get("/api/agent/whoami").status_code for _ in range(4)] == [200, 200, 200, 429]
+        monkeypatch.setattr(api_keys, "RATE_PER_MINUTE", 120)
+        # Lo que hace el agente queda auditado a nombre de su usuario de servicio.
+        c2 = _c(sb["key"])
+        r = c2.post("/api/agent/call", json={"method": "POST", "path": "/crm/leads",
+                                            "body": {"contact_name": "Auditado GPT", "phone": "0981000001"}}).json()
+        assert r["status"] == 201
+        log = db.query(AuditLog).filter(AuditLog.tenant_id == sb["tenant_id"], AuditLog.action == "ERP_CRM_LEAD_CREATED").all()
+        assert any(entry.actor_user_id == sb["user_id"] for entry in log)
     finally:
         db.close()

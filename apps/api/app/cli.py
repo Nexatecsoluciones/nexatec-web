@@ -271,18 +271,23 @@ def _print_key(raw: str) -> None:
 
 def cmd_create_agent_sandbox(args: argparse.Namespace) -> int:
     from app.core.config import get_settings
-    from app.services.agent_sandbox import SandboxError, create_sandbox
+    from app.services.agent_sandbox import SandboxError, SandboxExists, create_sandbox
 
     db = SessionLocal()
     try:
-        access, raw = create_sandbox(db, name=args.name)
+        access_id, raw = create_sandbox(db, name=args.name, system_slug=getattr(args, "system", "erp"))
+    except SandboxExists as exc:
+        print(f"Ya existe el sandbox \"{args.name}\" (system_access_id: {exc.access_id}, base: {exc.db_status}).", file=sys.stderr)
+        print("No se creo otro. Para una llave nueva:", file=sys.stderr)
+        print(f"  .venv/bin/python -m app.cli agent-key {exc.access_id} --name \"Llave GPT\"", file=sys.stderr)
+        return 2
     except SandboxError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     finally:
         db.close()
     base = get_settings().public_base_url.rstrip("/")
-    print(f"Sandbox creado. system_access_id: {access.id}")
+    print(f"Sandbox creado. system_access_id: {access_id}")
     print(f"Especificacion para el GPT: {base}/api/agent/openapi.json")
     _print_key(raw)
     return 0
@@ -373,6 +378,7 @@ def main() -> int:
 
     p_sb = sub.add_parser("create-agent-sandbox", help="Crea una demo propia para un agente (ChatGPT) y su llave de API")
     p_sb.add_argument("--name", default="Sandbox ChatGPT")
+    p_sb.add_argument("--system", default="erp", help="slug del sistema (por defecto erp)")
     p_key = sub.add_parser("agent-key", help="Emite otra llave de API para un sandbox de agente")
     p_key.add_argument("access_id")
     p_key.add_argument("--name", default="Llave adicional")

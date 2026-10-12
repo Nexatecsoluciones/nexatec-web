@@ -33,7 +33,9 @@ cd /home/opc/nexatec-web/apps/api && set -a && . /etc/nexatec/api-staging.env &&
 .venv/bin/python -m app.cli create-agent-sandbox --name "Sandbox ChatGPT"
 ```
 
-Imprime el `system_access_id` y la llave (una sola vez). Otros comandos:
+Imprime el `system_access_id` y la llave (una sola vez). Si ya existe un
+sandbox con ese nombre, **no crea otro**: muestra su `system_access_id` y el
+comando para emitir una llave nueva. Otros comandos:
 
 ```bash
 .venv/bin/python -m app.cli list-agent-keys

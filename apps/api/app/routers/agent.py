@@ -17,7 +17,8 @@ import uuid
 from typing import Any, Literal
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
@@ -44,10 +45,15 @@ MODULES: dict[str, tuple[str, list[str]]] = {
 }
 
 
-def agent_user(authorization: str | None = Header(default=None), db=Depends(get_db)) -> CurrentUser:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Falta Authorization: Bearer nxk_...")
-    return resolve(db, authorization)
+# Esquema de seguridad declarado en OpenAPI (no un header opcional suelto).
+bearer = HTTPBearer(auto_error=False, scheme_name="apiKey", description="Llave de API del sandbox (nxk_...)")
+
+
+def agent_user(creds: HTTPAuthorizationCredentials | None = Depends(bearer), db=Depends(get_db)) -> CurrentUser:
+    if creds is None:
+        raise HTTPException(status_code=401, detail="Falta Authorization: Bearer nxk_...",
+                            headers={"WWW-Authenticate": "Bearer"})
+    return resolve(db, f"Bearer {creds.credentials}")
 
 
 def _segment(path: str) -> str | None:
@@ -196,8 +202,8 @@ class CallIn(BaseModel):
 
 
 @router.post("/call", operation_id="call", summary="Ejecuta una ruta del ERP en la demo de esta llave")
-async def call(payload: CallIn, request: Request, authorization: str | None = Header(default=None),
-               user: CurrentUser = Depends(agent_user)):
+async def call(payload: CallIn, request: Request, user: CurrentUser = Depends(agent_user),
+               creds: HTTPAuthorizationCredentials | None = Depends(bearer)):
     path = payload.path if payload.path.startswith("/") else "/" + payload.path
     if ".." in path or "?" in path or "#" in path or "//" in path:
         raise HTTPException(status_code=422, detail="path invalido (sin '..', '?', '#'; la query va en 'query').")
@@ -206,7 +212,8 @@ async def call(payload: CallIn, request: Request, authorization: str | None = He
     async with httpx.AsyncClient(transport=transport, base_url="http://agent.internal") as client:
         resp = await client.request(payload.method, target, params=payload.query,
                                     json=payload.body if payload.method != "GET" else None,
-                                    headers={"Authorization": authorization or "", "Idempotency-Key": str(uuid.uuid4())})
+                                    headers={"Authorization": f"Bearer {creds.credentials}",
+                                             "Idempotency-Key": str(uuid.uuid4())})
     try:
         data = resp.json()
     except ValueError:
@@ -215,6 +222,29 @@ async def call(payload: CallIn, request: Request, authorization: str | None = He
 
 
 # --- Especificacion para ChatGPT -----------------------------------------------------------
+
+
+def _referenced_schemas(node: Any, all_schemas: dict) -> dict:
+    """Solo los esquemas alcanzables desde las rutas publicadas (antes se
+    publicaban los ~230 del sistema entero)."""
+    found: dict = {}
+
+    def walk(n):
+        if isinstance(n, dict):
+            ref = n.get("$ref")
+            if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+                name = ref.rsplit("/", 1)[1]
+                if name not in found and name in all_schemas:
+                    found[name] = all_schemas[name]
+                    walk(all_schemas[name])
+            for v in n.values():
+                walk(v)
+        elif isinstance(n, list):
+            for v in n:
+                walk(v)
+
+    walk(node)
+    return found
 
 
 @router.get("/openapi.json", include_in_schema=False)
@@ -229,16 +259,23 @@ def agent_openapi(request: Request, module: Literal["base", "ventas", "compras",
         for p, ops in full["paths"].items():
             if _module_of(p) == module:
                 keep[p] = ops
+    paths = json.loads(json.dumps(keep))
     spec = {
         "openapi": "3.1.0",
         "info": {"title": f"NEXATEC ERP - agente de pruebas{' - ' + module if module else ''}", "version": "1.0",
                  "description": "Pruebas de punta a punta en una DEMO con datos ficticios. Empezar por whoami y guide."},
         "servers": [{"url": server}],
-        "paths": json.loads(json.dumps(keep)),
-        "components": {"schemas": full.get("components", {}).get("schemas", {}),
-                       "securitySchemes": {"apiKey": {"type": "http", "scheme": "bearer"}}},
+        "paths": paths,
+        "components": {"schemas": _referenced_schemas(paths, full.get("components", {}).get("schemas", {})),
+                       "securitySchemes": {"apiKey": {"type": "http", "scheme": "bearer",
+                                                      "description": "Llave de API del sandbox (nxk_...)"}}},
         "security": [{"apiKey": []}],
     }
+    # La autenticacion la declara `security`: fuera el header/cookie sueltos.
+    for ops in spec["paths"].values():
+        for op in ops.values():
+            if "parameters" in op:
+                op["parameters"] = [x for x in op["parameters"] if x.get("name") not in ("authorization", "nexatec_session")]
     # operationId cortos y unicos (los de FastAPI son larguisimos).
     seen = set()
     for p, ops in spec["paths"].items():
