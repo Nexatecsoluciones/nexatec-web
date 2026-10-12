@@ -171,3 +171,31 @@ class SupplierPaymentAllocation(TenantBase):
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
 
     payment: Mapped[SupplierPayment] = relationship(back_populates="allocations")
+
+
+class SupplierInvoiceAttachment(TenantBase):
+    """PDF o foto de la factura del proveedor. El archivo vive en Garage
+    (bucket privado, clave generada por el servidor); aca solo metadatos.
+    Se descarga con URL firmada de 5 minutos, despues de verificar permisos.
+    Quitar un adjunto es baja logica (queda el rastro)."""
+
+    __tablename__ = "supplier_invoice_attachments"
+    __table_args__ = (
+        Index("uq_supplier_invoice_attachments_hash", "supplier_invoice_id", "sha256", unique=True,
+              postgresql_where=text("deleted_at IS NULL")),
+        CheckConstraint("size_bytes > 0", name="ck_supplier_invoice_attachments_size"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    supplier_invoice_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("supplier_invoices.id"), nullable=False, index=True)
+    object_key: Mapped[str] = mapped_column(String(300), nullable=False, unique=True)
+    filename: Mapped[str] = mapped_column(String(200), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(60), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    uploaded_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    delete_reason: Mapped[str | None] = mapped_column(String(250))

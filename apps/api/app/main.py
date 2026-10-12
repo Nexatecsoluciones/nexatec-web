@@ -14,6 +14,7 @@ from app.routers import (
     demo_requests,
     demos,
     erp_accounting,
+    erp_attachments,
     erp_crm,
     erp_dashboard,
     erp_hr,
@@ -119,6 +120,7 @@ app.include_router(erp_purchases.router)
 app.include_router(erp_crm.router)
 app.include_router(erp_hr.router)
 app.include_router(erp_pos.router)
+app.include_router(erp_attachments.router)
 app.include_router(erp_accounting.router)
 app.include_router(erp_dashboard.router)
 app.include_router(media.router)
