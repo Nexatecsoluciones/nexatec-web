@@ -8,9 +8,63 @@ const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/
 const EMPTY_INV = { supplier_id: "", supplier_invoice_number: "", supplier_timbrado: "", issue_date: today(), purchase_order_id: "",
   taxable_10: "", vat_10: "", taxable_5: "", vat_5: "", exempt: "" };
 
+interface Attachment { id: string; filename: string; content_type: string; size_bytes: number; created_at: string }
+
+/** Subida multipart directa (el cliente JSON del ERP no sirve para archivos). */
+async function uploadAttachment(accessId: string, invoiceId: string, file: File): Promise<void> {
+  const body = new FormData();
+  body.append("file", file);
+  const r = await fetch(`/api/erp/${accessId}/supplier-invoices/${invoiceId}/attachments`, { method: "POST", body, credentials: "include" });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail ?? "No se pudo adjuntar el archivo.");
+}
+
+function Attachments({ invoice, onClose }: { invoice: SupplierInvoice; onClose: () => void }) {
+  const { client, can, ctx } = useErp();
+  const action = useAction();
+  const list = useLoad(() => client.get<Attachment[]>(`/supplier-invoices/${invoice.id}/attachments`), [invoice.id]);
+  return (
+    <Panel title={`Adjuntos de la factura ${invoice.supplier_invoice_number}`} className="mb-5">
+      {action.error && <Notice>{action.error}</Notice>}
+      {action.message && <Notice kind="ok">{action.message}</Notice>}
+      <Table compact rows={list.data ?? []} rowKey={(a) => a.id} empty="Sin adjuntos." columns={[
+        { header: "Archivo", cell: (a) => <><p>{a.filename}</p><p className="text-xs text-nx-muted">{a.content_type === "application/pdf" ? "PDF" : "Foto"} · {Math.ceil(a.size_bytes / 1024)} KB · {day(a.created_at)}</p></> },
+        { header: "", cell: (a) => (
+          <div className="flex justify-end gap-1">
+            <SmallButton onClick={async () => {
+              // URL firmada de 5 minutos, pedida en el momento.
+              const r = await client.get<{ url: string }>(`/supplier-invoices/${invoice.id}/attachments/${a.id}/url`);
+              window.open(r.url, "_blank", "noopener,noreferrer");
+            }}>Ver</SmallButton>
+            {can("payables:write") && <SmallButton tone="danger" disabled={action.busy} onClick={async () => {
+              const reason = window.prompt("Motivo para quitar el adjunto:");
+              if (reason && await action.run(() => client.post(`/supplier-invoices/${invoice.id}/attachments/${a.id}/remove`, { reason }))) list.reload();
+            }}>Quitar</SmallButton>}
+          </div>
+        ) },
+      ]} />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {can("payables:write") && (
+          <label className="cursor-pointer rounded-full border border-nx-accent/50 px-4 py-1.5 text-sm font-bold text-nx-accent">
+            Agregar PDF o foto
+            <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f && await action.run(() => uploadAttachment(ctx.system_access_id, invoice.id, f), "Archivo adjuntado.")) list.reload();
+            }} />
+          </label>
+        )}
+        <SmallButton onClick={onClose}>Cerrar</SmallButton>
+        <span className="text-xs text-nx-muted">PDF, JPG, PNG o WebP · hasta 10 MB · desde el celular abre la camara.</span>
+      </div>
+    </Panel>
+  );
+}
+
 export default function PagosPage() {
-  const { client, can } = useErp();
+  const { client, can, ctx } = useErp();
   const [inv, setInv] = useState(EMPTY_INV);
+  const [invFile, setInvFile] = useState<File | null>(null);
+  const [attFor, setAttFor] = useState<SupplierInvoice | null>(null);
   const [pay, setPay] = useState({ supplier_id: "", method: "TRANSFER" as PaymentMethod, amount: "", invoice_id: "", reference: "" });
   const action = useAction();
 
@@ -34,11 +88,21 @@ export default function PagosPage() {
 
   async function register(e: React.FormEvent) {
     e.preventDefault();
-    const ok = await action.run(() => client.post("/supplier-invoices", {
-      ...inv, supplier_timbrado: inv.supplier_timbrado || null, purchase_order_id: inv.purchase_order_id || null,
-      taxable_10: n(inv.taxable_10), vat_10: n(inv.vat_10), taxable_5: n(inv.taxable_5), vat_5: n(inv.vat_5), exempt: n(inv.exempt),
-    }), "Factura de proveedor registrada.");
+    const ok = await action.run(async () => {
+      const created = await client.post<SupplierInvoice>("/supplier-invoices", {
+        ...inv, supplier_timbrado: inv.supplier_timbrado || null, purchase_order_id: inv.purchase_order_id || null,
+        taxable_10: n(inv.taxable_10), vat_10: n(inv.vat_10), taxable_5: n(inv.taxable_5), vat_5: n(inv.vat_5), exempt: n(inv.exempt),
+      });
+      if (invFile) {
+        try {
+          await uploadAttachment(ctx.system_access_id, created.id, invFile);
+        } catch (err) {
+          throw new Error(`La factura se registro, pero el adjunto fallo: ${(err as Error).message} Adjuntalo desde la lista.`);
+        }
+      }
+    }, invFile ? "Factura registrada con su adjunto." : "Factura de proveedor registrada.");
     if (ok) {
+      setInvFile(null);
       setInv({ ...EMPTY_INV, supplier_id: inv.supplier_id });
       reloadAll();
     }
@@ -93,6 +157,10 @@ export default function PagosPage() {
               <Field label="Gravado 5%"><Input type="number" min="0" value={inv.taxable_5} onChange={(e) => setInv({ ...inv, taxable_5: e.target.value, vat_5: suggestVat(e.target.value, 5) })} /></Field>
               <Field label="IVA 5%"><Input type="number" min="0" value={inv.vat_5} onChange={(e) => setInv({ ...inv, vat_5: e.target.value })} /></Field>
               <Field label="Exento"><Input type="number" min="0" value={inv.exempt} onChange={(e) => setInv({ ...inv, exempt: e.target.value })} /></Field>
+              <Field label="Adjuntar PDF o foto de la factura (opcional)">
+                <input key={invFile ? "con-archivo" : "vacio"} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="text-sm"
+                  onChange={(e) => setInvFile(e.target.files?.[0] ?? null)} />
+              </Field>
               <div className="flex items-end justify-between gap-2">
                 <span className="text-sm">Total: <strong>{money(total)}</strong></span>
                 <SmallButton type="submit" tone="primary" disabled={action.busy}>Registrar</SmallButton>
@@ -130,9 +198,11 @@ export default function PagosPage() {
         </div>
       )}
 
+      {attFor && <Attachments invoice={attFor} onClose={() => setAttFor(null)} />}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Panel title="Facturas de proveedor pendientes">
           <Table
+            compact
             rows={invoices.data?.items ?? []}
             rowKey={(i) => i.id}
             empty="No hay facturas pendientes."
@@ -142,6 +212,7 @@ export default function PagosPage() {
               { header: "Vence", cell: (i) => day(i.due_date) },
               { header: "Total", cell: (i) => money(i.total), align: "right" },
               { header: "Saldo", cell: (i) => money(i.balance_due), align: "right" },
+              { header: "", cell: (i) => <SmallButton onClick={() => setAttFor(i)}>Adjuntos</SmallButton> },
             ]}
           />
         </Panel>

@@ -451,6 +451,14 @@ def list_sales(ctx: ErpContext = Depends(require("cash:operate")), session_id: u
     return [_sale_out(ctx, x) for x in ctx.db.execute(stmt.order_by(PosSale.created_at.desc()).limit(200)).scalars()]
 
 
+@router.get("/pos/sales/{sale_id}", response_model=SaleOut)
+def get_sale(sale_id: uuid.UUID, ctx: ErpContext = Depends(require("cash:operate"))):
+    sale = ctx.db.get(PosSale, sale_id)
+    if sale is None or (sale.created_by_user_id != ctx.user.id and not ctx.can("cash:manage")):
+        raise _404("Venta")
+    return _sale_out(ctx, sale)
+
+
 class ReasonIn(BaseModel):
     reason: str = Field(min_length=3, max_length=250)
 

@@ -21,6 +21,8 @@ export function useErp(): ErpValue {
 // lo que el rol puede ver; el servidor igual lo valida en cada endpoint).
 export const NAV = [
   { href: "", label: "Tablero", perm: "dashboard:read" },
+  { href: "/vender", label: "Vender", perm: "pos:sell" },
+  { href: "/caja", label: "Caja", perm: "cash:operate" },
   { href: "/crm", label: "CRM", perm: "crm:read" },
   { href: "/ventas", label: "Ventas", perm: "sales:read" },
   { href: "/cobranzas", label: "Facturas y cobros", perm: "receivables:read" },

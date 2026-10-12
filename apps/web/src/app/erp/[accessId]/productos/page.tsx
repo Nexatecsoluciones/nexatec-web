@@ -2,14 +2,62 @@
 
 import { useState } from "react";
 import { Field, Input, Notice, PageTitle, Pager, Panel, Select, SmallButton, Table, useAction, useErp, useLoad } from "@/components/erp";
-import { label, money, type Category, type Page, type Product, type Tax, type Unit } from "@/lib/erp";
+import { Barcode } from "@/components/barcode";
+import { label, money, type Barcode as BarcodeT, type Category, type Page, type Product, type Tax, type Unit } from "@/lib/erp";
+
+function BarcodesPanel({ product, onClose }: { product: Product; onClose: () => void }) {
+  const { client, can } = useErp();
+  const action = useAction();
+  const [code, setCode] = useState("");
+  const codes = useLoad(() => client.get<BarcodeT[]>(`/products/${product.id}/barcodes`), [product.id]);
+  const write = can("products:write");
+  return (
+    <Panel title={`Codigos de barras · ${product.name}`} className="mb-5">
+      {action.error && <Notice>{action.error}</Notice>}
+      <div className="flex flex-wrap gap-4">
+        {(codes.data ?? []).map((b) => (
+          <div key={b.id} className={`rounded-xl border bg-white p-3 text-center text-black ${b.is_primary ? "border-nx-accent" : "border-nx-line"}`}>
+            <Barcode value={b.code} symbology={b.symbology} height={36} width={1.4} />
+            <p className="mt-1 text-[11px]">{b.symbology}{b.is_internal ? " · interno" : ""}{b.is_primary ? " · principal" : ""}</p>
+            {write && <button className="text-[11px] text-red-600 hover:underline" onClick={async () => {
+              if (window.confirm(`¿Quitar el codigo ${b.code}?`) && await action.run(() => client.del(`/products/${product.id}/barcodes/${b.id}`))) codes.reload();
+            }}>Quitar</button>}
+          </div>
+        ))}
+        {codes.data?.length === 0 && <p className="text-sm text-nx-muted">Sin codigos todavia.</p>}
+      </div>
+      {write && (
+        <div className="mt-4 flex flex-wrap items-end gap-2">
+          <Field label="Escanear o escribir el codigo del fabricante (EAN/UPC) u otro">
+            <Input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={async (e) => {
+              if (e.key === "Enter" && code.trim()) {
+                e.preventDefault();
+                if (await action.run(() => client.post(`/products/${product.id}/barcodes`, { code: code.trim(), primary: !codes.data?.length }))) { setCode(""); codes.reload(); }
+              }
+            }} />
+          </Field>
+          <SmallButton disabled={action.busy || !code.trim()} onClick={async () => {
+            if (await action.run(() => client.post(`/products/${product.id}/barcodes`, { code: code.trim(), primary: !codes.data?.length }))) { setCode(""); codes.reload(); }
+          }}>Agregar</SmallButton>
+          <SmallButton tone="primary" disabled={action.busy} onClick={async () => {
+            if (await action.run(() => client.post(`/products/${product.id}/barcodes/generate`))) codes.reload();
+          }}>Generar codigo interno</SmallButton>
+          <SmallButton onClick={onClose}>Cerrar</SmallButton>
+        </div>
+      )}
+      <p className="mt-2 text-xs text-nx-muted">Los EAN/UPC se validan por digito verificador. Los internos (NX...) son Code 128: sirven dentro de tu negocio y no son codigos GS1.</p>
+    </Panel>
+  );
+}
 
 const LIMIT = 25;
 const EMPTY = { sku: "", name: "", product_type: "GOOD", unit_id: "", tax_code: "IVA10", sale_price: "", category_id: "" };
 
 export default function ProductosPage() {
-  const { client, can } = useErp();
+  const { client, can, base } = useErp();
   const [q, setQ] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [codesFor, setCodesFor] = useState<Product | null>(null);
   const [offset, setOffset] = useState(0);
   const [form, setForm] = useState(EMPTY);
   const action = useAction();
@@ -83,16 +131,29 @@ export default function ProductosPage() {
         </Panel>
       )}
 
+      {codesFor && <BarcodesPanel product={codesFor} onClose={() => setCodesFor(null)} />}
+
       <Panel>
-        <div className="mb-3 max-w-sm">
-          <Input placeholder="Buscar por nombre o SKU" value={q} onChange={(e) => { setOffset(0); setQ(e.target.value); }} />
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div className="w-full max-w-sm">
+            <Input placeholder="Buscar por nombre o SKU" value={q} onChange={(e) => { setOffset(0); setQ(e.target.value); }} />
+          </div>
+          {picked.length > 0 && (
+            <>
+              <a className="rounded-full bg-nx-accent px-4 py-2 text-sm font-bold text-[#06352f]" target="_blank" rel="noopener noreferrer"
+                href={`${base.replace("/erp/", "/imprimir/")}/etiquetas?ids=${picked.join(",")}`}>Imprimir etiquetas ({picked.length})</a>
+              <SmallButton onClick={() => setPicked([])}>Limpiar seleccion</SmallButton>
+            </>
+          )}
         </div>
         <Table
           rows={list.data?.items ?? []}
           rowKey={(p) => p.id}
           columns={[
+            { header: "", cell: (p) => <input type="checkbox" aria-label={`Elegir ${p.name} para etiquetas`} checked={picked.includes(p.id)}
+                onChange={(e) => setPicked(e.target.checked ? [...picked, p.id] : picked.filter((x) => x !== p.id))} /> },
             { header: "SKU", cell: (p) => p.sku },
-            { header: "Nombre", cell: (p) => p.name },
+            { header: "Nombre", cell: (p) => <button className="text-left hover:text-nx-accent" title="Codigos de barras" onClick={() => setCodesFor(p)}>{p.name}</button> },
             { header: "Tipo", cell: (p) => label(p.product_type) },
             { header: "Categoria", cell: (p) => cat(p.category_id) },
             { header: "IVA", cell: (p) => p.tax_code },

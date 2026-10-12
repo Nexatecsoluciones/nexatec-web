@@ -201,6 +201,36 @@ export interface Pipeline {
   overdue_activities: number;
 }
 
+// --- Mostrador (venta rapida y caja) ---
+export interface PosProduct { product_id: string; sku: string; name: string; sale_price: Money; tax_code: string; tracks_stock: boolean; available: string | null }
+export interface CashRegister { id: string; code: string; name: string; warehouse_id: string; default_customer_id: string | null; is_active: boolean }
+export interface CashSession {
+  id: string; number: string; register_id: string; status: "OPEN" | "CLOSED"; opened_by_user_id: string; opened_by: string | null;
+  opened_at: string; opening_float: Money; closed_at: string | null; expected_cash: Money | null; counted_cash: Money | null;
+  difference: Money | null; count_detail: Record<string, number> | null; closing_notes: string | null;
+}
+export interface CashMovement { id: string; kind: string; method: string; direction: number; amount: Money; description: string | null; pos_sale_id: string | null; created_at: string }
+export interface CashSessionDetail {
+  session: CashSession; movements: CashMovement[];
+  summary: { expected_cash: Money; by_method: Record<string, Money>; by_kind: Record<string, Money>; sales_count: number; sales_total: Money; voided_count: number };
+}
+export interface PosSale {
+  id: string; status: "COMPLETED" | "VOIDED"; session_id: string; order_id: string; invoice_id: string; invoice_number: string | null;
+  customer_id: string; total: Money; paid: Money; tendered_cash: Money; change_given: Money;
+  payments: { method: string; amount: string; reference: string | null }[]; created_at: string; void_reason: string | null; replayed: boolean;
+}
+export interface Barcode { id: string; product_id: string; code: string; symbology: "EAN13" | "UPCA" | "EAN8" | "CODE128"; is_primary: boolean; is_internal: boolean }
+export interface PosDashboard {
+  date: string; sales_count: number; sales_total: Money; average_ticket: Money; credit_total: Money; voided_count: number;
+  by_method: Record<string, Money>; by_user: { user: string | null; count: number; total: Money }[];
+  top_products: { product_id: string; name: string; quantity: string; total: Money }[];
+  sessions: { id: string; number: string; register: string | null; status: string; opened_by: string | null; opened_at: string;
+    expected_cash: Money | null; counted_cash: Money | null; difference: Money | null }[];
+}
+export function newKey(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 // --- RR.HH. ---
 export interface HrSettings {
   pay_period: "BIWEEKLY" | "MONTHLY"; workday_hours: string; rounding_minutes: number; overtime_multiplier: string;
@@ -259,6 +289,9 @@ export function erp(accessId: string) {
       call<T>(`${base}${path}${qs(params)}`),
     post: <T>(path: string, body?: unknown, idempotent = false) =>
       call<T>(`${base}${path}`, { method: "POST", body: JSON.stringify(body ?? {}), idempotent }),
+    // Clave de idempotencia FIJA (la misma en cada reintento de la misma operacion).
+    postKeyed: <T>(path: string, body: unknown, key: string) =>
+      call<T>(`${base}${path}`, { method: "POST", body: JSON.stringify(body), headers: { "Idempotency-Key": key } }),
     put: <T>(path: string, body: unknown) => call<T>(`${base}${path}`, { method: "PUT", body: JSON.stringify(body) }),
     patch: <T>(path: string, body: unknown) => call<T>(`${base}${path}`, { method: "PATCH", body: JSON.stringify(body) }),
     del: <T>(path: string) => call<T>(`${base}${path}`, { method: "DELETE" }),
@@ -298,7 +331,13 @@ export const STATUS_LABEL: Record<string, string> = {
   OPEN: "Abierto", CONVERTED: "Convertido", DISCARDED: "Descartado",
   BIWEEKLY: "Quincenal", MONTHLY: "Mensual", PENDING: "Pendiente", APPROVED: "Aprobada", REJECTED: "Rechazada",
   VACATION: "Vacaciones", PERMISSION: "Permiso", MEDICAL: "Reposo medico", MANUAL: "Manual", DEVICE: "Celular", IMPORT: "Importada",
+  SALE: "Venta", COLLECTION: "Cobro de saldo", VOID: "Anulacion", CASH_IN: "Ingreso", EXPENSE: "Gasto",
+  TO_BANK: "Deposito al banco", FROM_BANK: "Cambio del banco", COMPLETED: "Completada",
   CALL: "Llamada", MEETING: "Reunion", EMAIL: "Email", WHATSAPP: "WhatsApp", TASK: "Tarea", NOTE: "Nota",
 };
 
 export const label = (code: string) => STATUS_LABEL[code] ?? code;
+
+// Medio de pago (CASH = efectivo; distinto de la CONDICION de venta "Contado").
+const METHOD_LABEL: Record<string, string> = { CASH: "Efectivo", TRANSFER: "Transferencia", CARD: "Tarjeta", CHECK: "Cheque", OTHER: "Otro" };
+export const methodLabel = (code: string) => METHOD_LABEL[code] ?? code;

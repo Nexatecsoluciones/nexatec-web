@@ -260,3 +260,13 @@ def test_dashboard(t):
 
 def test_ean_check_digit():
     assert pos._gtin_ok("7840000000005") and pos._gtin_ok("036000291452") and not pos._gtin_ok("7840000000003")
+
+
+def test_get_sale_visibility(t):
+    base = t["base"]
+    mine = t["c"]["cajero2"].get(f"{base}/pos/sales").json()
+    assert mine and all(s["status"] in ("COMPLETED", "VOIDED") for s in mine)
+    sid = mine[0]["id"]
+    assert t["c"]["cajero2"].get(f"{base}/pos/sales/{sid}").json()["invoice_number"].startswith("FI-")
+    assert t["c"]["gerente"].get(f"{base}/pos/sales/{sid}").status_code == 200      # supervisor
+    assert t["c"]["cajero1"].get(f"{base}/pos/sales/{sid}").status_code == 404      # otro cajero
