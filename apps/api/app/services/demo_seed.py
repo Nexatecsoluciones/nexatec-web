@@ -171,6 +171,7 @@ def _seed_operations(db: Session) -> None:
     sell("cli-2", [("LIM-JABON-POLVO-1KG", 10), ("BEB-JUGO-1L", 12)], cash_c, "draft")
     _seed_crm(db, party)
     _seed_hr(db)
+    _seed_pos(db, pid, party)
 
 
 def _seed_crm(db: Session, party: dict) -> None:
@@ -368,3 +369,18 @@ def _seed_hr(db: Session) -> None:
                           pay_method=PayMethod.CASH, notes="Adelanto (ejemplo)", user_id=None)
     payroll = hr.create_payroll(db, prev_start, prev_end, None, None)
     hr.close_payroll(db, payroll.id, None)
+
+
+def _seed_pos(db: Session, pid: dict, party: dict) -> None:
+    """Caja lista para vender y codigos de barras INTERNOS (Code 128 'NX...')
+    para los productos fisicos: no se inventan EAN, que imitarian un GTIN."""
+    from app.services import pos
+    from app.tenant_models.core import Product
+    from app.tenant_models.pos import CashRegister
+
+    db.add(CashRegister(id=_id("pos-caja-1"), code="CAJA-01", name="Caja principal (demo)",
+                        warehouse_id=_id("wh-principal"), default_customer_id=party["cli-6"]))
+    for sku, product_id in pid.items():
+        if db.get(Product, product_id).tracks_stock:
+            pos.generate_internal(db, product_id)
+    db.flush()

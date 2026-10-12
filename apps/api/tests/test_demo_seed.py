@@ -96,6 +96,8 @@ def test_demo_has_consistent_operations(dbs):
         assert q("SELECT count(*) FROM hr_payroll_lines l JOIN hr_payrolls p ON p.id = l.payroll_id WHERE p.status = 'CLOSED'") == 8
         assert q("SELECT count(*) FROM hr_payroll_lines WHERE net <> gross - ips_employee - advances") == 0
         assert q("SELECT count(*) FROM hr_attendance") > 40
+        assert q("SELECT count(*) FROM cash_registers") == 1
+        assert q("SELECT count(*) FROM product_barcodes WHERE code LIKE 'NX%' AND is_primary") == 10
         assert q("SELECT count(*) FROM sales_invoices WHERE fiscal_status <> 'INTERNAL_SIMULATION'") == 0
         assert q("SELECT count(*) FROM sales_orders WHERE status='CONFIRMED'") == 1
         assert q("SELECT count(*) FROM sales_orders WHERE status='DRAFT'") == 1
