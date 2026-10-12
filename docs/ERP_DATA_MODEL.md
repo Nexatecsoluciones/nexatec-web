@@ -353,6 +353,46 @@ datos de ningún cliente ni datos biométricos.
   cerrada y la actual en curso con tardanzas, extra pendiente, una falta,
   una ausencia justificada y adelantos.
 
+## Revisión `7b7207893262` — venta rápida, caja y códigos de barras
+
+**No es un motor de ventas paralelo.** Una venta rápida ejecuta, en UNA
+transacción, los servicios existentes: `sales.create_order` → `confirm`
+(reserva) → `deliver` (kardex + costo) → `receivables.invoice_order`
+(factura interna `FI-` + asiento) → `post_receipt` por cada medio de pago
+(asiento de cobro). Si algo falla, rollback total.
+
+- `product_barcodes`: varios por producto, uno principal (índice parcial),
+  únicos por empresa. EAN-13/UPC-A/EAN-8 validados por dígito verificador
+  GS1; internos `NX000001` en Code 128 (nunca imitan un GTIN).
+- `cash_registers` (caja → depósito, cliente por defecto),
+  `cash_sessions` (`CJ-`; un turno abierto por caja y por usuario —índices
+  parciales—; cierre con contado, esperado, diferencia y detalle por
+  billete; CHECK de arqueo; **cerrado = inmutable**, trigger),
+  `cash_movements` (inmutables; no se insertan en turno cerrado; firmados
+  ±; esperado = fondo + Σ efectivo).
+- `pos_sales`: venta del mostrador → pedido + factura (únicos), pagos
+  `[{method, amount, reference}]`, efectivo recibido, vuelto, clave de
+  idempotencia **única** (doble clic o reintento = la misma venta).
+- Contabilidad: cobros con su asiento existente (efectivo → Caja, tarjeta y
+  transferencia → Bancos); ingresos/egresos manuales con asiento (Otros
+  ingresos 4.2.02, Gastos 6.1.01, Bancos); diferencia de arqueo → Sobrantes
+  4.2.01 / Faltantes 6.1.03. Las cuentas se agregan solo si no existen.
+- Anulación (supervisor, `cash:manage`, mientras el turno sigue abierto):
+  anula los cobros (revierte caja y asiento) + nota de crédito RETURN total
+  con reingreso de stock. Con el turno cerrado: NC + egreso de caja.
+- Permisos: `pos:sell` (Admin, Gerencia, Ventas), `cash:operate` (+
+  Finanzas), `cash:manage` (Admin, Gerencia, Finanzas), `pos:discount`
+  (Admin, Gerencia).
+
+## Revisión `f8de48bdf89d` — adjuntos de facturas de proveedor
+
+`supplier_invoice_attachments`: metadatos; el archivo vive en Garage
+(`supplier-invoices/tenant-<id>/<demo|prod>/<sistema>/<uuid>.<ext>`). Tipo
+detectado por contenido (PDF, JPEG, PNG, WebP), 10 MB, 10 por factura,
+duplicado por sha256 → 409, URL firmada de 5 min tras verificar
+`payables:read`, baja lógica con motivo. Si la base falla después de subir,
+se borra el objeto (sin huérfanos). OCR: etapa posterior.
+
 ## Comprobantes imprimibles / PDF
 
 `/imprimir/{acceso}/factura/{id}` y `/imprimir/{acceso}/nota-credito/{id}`:

@@ -83,7 +83,8 @@ def whoami(user: CurrentUser = Depends(agent_user), db=Depends(get_db)):
         "system_access_id": str(access.id), "environment": access.environment.value,
         "company": tenant.display_name if tenant else None, "role": ROLE_LABELS.get(role, role.value),
         "permissions": sorted(permissions_for(role)), "modules": {k: v[0] for k, v in MODULES.items()},
-        "how_to_call": "POST /api/agent/call con {method, path, query?, body?}; path relativo al ERP, ej. '/sales/orders'.",
+        "how_to_call": ("POST /api/agent/call con {method, path, query?, body?}; path relativo al ERP, ej. '/sales/orders'. "
+                        "call agrega una Idempotency-Key nueva en cada llamada."),
     }
 
 
@@ -101,6 +102,10 @@ GUIDE = {
         "Errores: 422 (dato invalido, con explicacion), 409 (regla de negocio / estado), 403 (permiso), 404.",
     ],
     "flujos_para_probar": {
+        "mostrador_y_caja": ["GET /pos/registers", "POST /pos/sessions (abrir con fondo)", "GET /pos/lookup?code= y /pos/search?q=",
+                             "POST /pos/sales con encabezado Idempotency-Key (contado con vuelto, mixto, credito)",
+                             "POST /pos/sessions/{id}/movements (gasto)", "POST /pos/sales/{id}/void (supervisor)",
+                             "POST /pos/sessions/{id}/close (arqueo)", "GET /pos/dashboard"],
         "venta_contado": ["GET /parties?role=customer", "GET /products", "GET /warehouses",
                           "POST /sales/orders (CASH)", "POST /sales/orders/{id}/confirm", "POST /sales/orders/{id}/deliver",
                           "POST /invoices (desde el pedido)", "POST /receipts (cobro aplicado)", "GET /accounting/reports/trial-balance"],

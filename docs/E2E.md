@@ -66,3 +66,12 @@ automatizado no puede pasar el desafío del login (es lo esperado). Por eso
 Requiere acceso al servidor, no abre nada nuevo. El login con Turnstile se
 prueba a mano. `admin-first-login.e2e.mjs` y el envío del formulario de demo
 de `public-site.e2e.mjs` necesitan un entorno con claves de prueba.
+
+## Venta rápida y caja (`apps/web/e2e/pos.e2e.mjs`)
+
+Abrir caja, escanear código interno, `2*SKU`, búsqueda por nombre, cobro en
+efectivo con vuelto (F2) y ticket "SIN VALIDEZ TRIBUTARIA", venta a crédito
+a cliente identificado, gasto de caja, cierre con conteo por billete sin
+diferencia, tablero del día, etiquetas con código de barras, adjunto PDF a
+factura de proveedor y móvil sin desborde. Última corrida (2026-10-12,
+entorno aislado con base de tests): **9/9, sin errores de consola**.
